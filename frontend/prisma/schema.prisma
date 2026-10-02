@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id                   String     @id @default(uuid())
+  username             String     @unique
+  passwordHash         String
+  nombre               String
+  apellidos            String
+  edad                 Int
+  altura               Float
+  peso                 Float
+  lateralidad          String     @default("diestro")
+  estiloReves          String     @default("2_manos")
+  estiloDerecha        String     @default("tradicional")
+  // Momento en que aceptó la política de privacidad (RGPD: prueba del consentimiento)
+  privacidadAceptadaEn DateTime?
+  // Va dentro de cada sesión: al cambiar la contraseña se incrementa y las
+  // sesiones abiertas con la versión anterior dejan de valer
+  sesionVersion        Int        @default(0)
+  createdAt            DateTime   @default(now())
+  analisis             Analisis[]
+
+  // Comunidad. El perfil de jugador es privado por defecto (privacidad desde el diseño)
+  perfilPublico       Boolean @default(false)
+  ciudad              String?
+  club                String?
+  nivel               String?
+  disponibilidad      String?
+  bio                 String?
+  // Puntos Elo y contadores por modalidad; se actualizan al confirmar cada partido
+  puntosIndividual    Int     @default(1200)
+  partidosIndividual  Int     @default(0)
+  victoriasIndividual Int     @default(0)
+  puntosDobles        Int     @default(1200)
+  partidosDobles      Int     @default(0)
+  victoriasDobles     Int     @default(0)
+  // "jugador" | "organizador". Solo los organizadores (clubes) crean torneos; el rol lo
+  // asigna el administrador con scripts/organizador.mts
+  rol                 String  @default("jugador")
+  organizacion        String?
+
+  amistadesEnviadas       Amistad[]               @relation("AmistadSolicitante")
+  amistadesRecibidas      Amistad[]               @relation("AmistadReceptor")
+  bloqueosHechos          Bloqueo[]               @relation("BloqueoAutor")
+  bloqueosRecibidos       Bloqueo[]               @relation("BloqueoBloqueado")
+  denunciasHechas         Denuncia[]              @relation("DenunciaAutor")
+  denunciasRecibidas      Denuncia[]              @relation("DenunciaDenunciado")
+  partidosCreados         Partido[]               @relation("PartidoCreador")
+  participaciones         JugadorPartido[]
+  convocatorias           Convocatoria[]
+  solicitudesConvocatoria SolicitudConvocatoria[]
+  torneosOrganizados      Torneo[]
+  inscripcionesTorneo     InscripcionTorneo[]     @relation("InscripcionTitular")
+  inscripcionesCompanero  InscripcionTorneo[]     @relation("InscripcionCompanero")
+}
+
+// Torneo de eliminatoria creado por un organizador
+model Torneo {
+  id                String   @id @default(uuid())
+  organizadorId     String
+  nombre            String
+  descripcion       String?
+  modalidad         String // "individual" | "dobles"
+  // Máximo de inscripciones (jugadores o parejas): 4, 8, 16 o 32
+  plazas            Int
+  lugar             String
+  ciudad            String
+  nivel             String?
+  cierreInscripcion DateTime
+  inicio            DateTime
+  estado            String   @default("inscripcion") // "inscripcion" | "en_curso" | "finalizado" | "cancelado"
+  campeonId         String?  @unique
+  creadoEn          DateTime @default(now())
+
+  organizador   User                @relation(fields: [organizadorId], references: [id], onDelete: Cascade)
+  campeon       InscripcionTorneo?  @relation("Campeon", fields: [campeonId], references: [id], onDelete: SetNull)
+  inscripciones InscripcionTorneo[] @relation("Inscripciones")
+  partidos      PartidoTorneo[]
+
+  @@index([estado, inicio])
+}
+
+// Un jugador (o una pareja en dobles) inscrito en un torneo
+model InscripcionTorneo {
+  id          String   @id @default(uuid())
+  torneoId    String
+  userId      String
+  // Dobles: la pareja tiene que aceptar antes de que la inscripción cuente
+  companeroId String?
+  estado      String   @default("confirmada") // "pendiente_companero" | "confirmada"
+  // Cabeza de serie según los puntos al sortear el cuadro (1 = el mejor)
+  semilla     Int?
+  creadaEn    DateTime @default(now())
+
+  torneo          Torneo          @relation("Inscripciones", fields: [torneoId], references: [id], onDelete: Cascade)
+  user            User            @relation("InscripcionTitular", fields: [userId], references: [id], onDelete: Cascade)
+  companero       User?           @relation("InscripcionCompanero", fields: [companeroId], references: [id], onDelete: Cascade)
+  campeonDe       Torneo?         @relation("Campeon")
+  partidosComo1   PartidoTorneo[] @relation("Cuadro1")
+  partidosComo2   PartidoTorneo[] @relation("Cuadro2")
+  partidosGanados PartidoTorneo[] @relation("CuadroGanador")
+
+  @@unique([torneoId, userId])
+  @@index([companeroId])
+}
+
+// Cada cruce del cuadro. La ronda 1 es la primera; el ganador pasa a la siguiente
+model PartidoTorneo {
+  id             String  @id @default(uuid())
+  torneoId       String
+  ronda          Int
+  posicion       Int
+  inscripcion1Id String?
+  inscripcion2Id String?
+  ganadorId      String?
+  // "normal" | "bye" (pasa sin jugar por falta de rival) | "incomparecencia"
+  tipo           String  @default("normal")
+  // Partido con el marcador y los puntos, si se jugó
+  partidoId      String? @unique
+
+  torneo       Torneo             @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  inscripcion1 InscripcionTorneo? @relation("Cuadro1", fields: [inscripcion1Id], references: [id], onDelete: SetNull)
+  inscripcion2 InscripcionTorneo? @relation("Cuadro2", fields: [inscripcion2Id], references: [id], onDelete: SetNull)
+  ganador      InscripcionTorneo? @relation("CuadroGanador", fields: [ganadorId], references: [id], onDelete: SetNull)
+  partido      Partido?           @relation(fields: [partidoId], references: [id], onDelete: SetNull)
+
+  @@unique([torneoId, ronda, posicion])
+}
+
+// «Buscar partido»: alguien publica cuándo y dónde quiere jugar y cuántos jugadores le faltan
+model Convocatoria {
+  id          String                  @id @default(uuid())
+  creadorId   String
+  modalidad   String // "individual" | "dobles"
+  fechaHora   DateTime
+  lugar       String
+  ciudad      String
+  // Nivel que busca (orientativo); null = cualquiera
+  nivel       String?
+  // Jugadores que faltan además de quien la publica: 1 en individual, de 1 a 3 en dobles
+  plazas      Int
+  comentario  String?
+  estado      String                  @default("abierta") // "abierta" | "completa" | "cancelada"
+  creadaEn    DateTime                @default(now())
+  // Partido registrado después de jugarla
+  partidoId   String?                 @unique
+  creador     User                    @relation(fields: [creadorId], references: [id], onDelete: Cascade)
+  partido     Partido?                @relation(fields: [partidoId], references: [id], onDelete: SetNull)
+  solicitudes SolicitudConvocatoria[]
+
+  @@index([estado, fechaHora])
+  @@index([creadorId])
+}
+
+model SolicitudConvocatoria {
+  id             String       @id @default(uuid())
+  convocatoriaId String
+  userId         String
+  estado         String       @default("pendiente") // "pendiente" | "aceptada" | "rechazada"
+  mensaje        String?
+  creadaEn       DateTime     @default(now())
+  convocatoria   Convocatoria @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([convocatoriaId, userId])
+  @@index([userId])
+}
+
+// Solicitud de amistad; al aceptarla pasa a "aceptada". Rechazar o eliminar borra la fila
+model Amistad {
+  id            String    @id @default(uuid())
+  solicitanteId String
+  receptorId    String
+  estado        String    @default("pendiente") // "pendiente" | "aceptada"
+  creadaEn      DateTime  @default(now())
+  aceptadaEn    DateTime?
+  solicitante   User      @relation("AmistadSolicitante", fields: [solicitanteId], references: [id], onDelete: Cascade)
+  receptor      User      @relation("AmistadReceptor", fields: [receptorId], references: [id], onDelete: Cascade)
+
+  @@unique([solicitanteId, receptorId])
+  @@index([receptorId, estado])
+}
+
+// Un bloqueo oculta los perfiles en ambos sentidos e impide solicitudes y partidos
+model Bloqueo {
+  autorId     String
+  bloqueadoId String
+  creadoEn    DateTime @default(now())
+  autor       User     @relation("BloqueoAutor", fields: [autorId], references: [id], onDelete: Cascade)
+  bloqueado   User     @relation("BloqueoBloqueado", fields: [bloqueadoId], references: [id], onDelete: Cascade)
+
+  @@id([autorId, bloqueadoId])
+  @@index([bloqueadoId])
+}
+
+// Denuncias para moderación. Se conservan aunque quien denuncia borre su cuenta
+model Denuncia {
+  id           String   @id @default(uuid())
+  autorId      String?
+  denunciadoId String
+  motivo       String
+  detalle      String?
+  creadaEn     DateTime @default(now())
+  revisada     Boolean  @default(false)
+  autor        User?    @relation("DenunciaAutor", fields: [autorId], references: [id], onDelete: SetNull)
+  denunciado   User     @relation("DenunciaDenunciado", fields: [denunciadoId], references: [id], onDelete: Cascade)
+
+  @@index([denunciadoId])
+}
+
+// Partido registrado por un jugador. Cuenta para el ranking cuando un rival lo confirma
+model Partido {
+  id            String           @id @default(uuid())
+  modalidad     String // "individual" | "dobles"
+  jugadoEn      DateTime
+  lugar         String?
+  // Juegos de cada set como JSON, siempre desde el equipo 1: [[6,4],[3,6],[10,8]]
+  sets          String
+  ganador       Int // 1 | 2
+  estado        String           @default("pendiente") // "pendiente" | "confirmado" | "rechazado"
+  creadoPorId   String?
+  creadoEn      DateTime         @default(now())
+  confirmadoEn  DateTime?
+  creadoPor     User?            @relation("PartidoCreador", fields: [creadoPorId], references: [id], onDelete: SetNull)
+  jugadores     JugadorPartido[]
+  convocatoria  Convocatoria?
+  partidoTorneo PartidoTorneo?
+
+  @@index([estado])
+}
+
+model JugadorPartido {
+  id            String  @id @default(uuid())
+  partidoId     String
+  // Null si el jugador borró su cuenta: el partido sigue en el historial de los demás
+  userId        String?
+  equipo        Int // 1 (quien lo registra) | 2 (rivales)
+  // Puntos de la modalidad antes y después del partido (al confirmarlo)
+  puntosAntes   Int?
+  puntosDespues Int?
+  partido       Partido @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+  user          User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([partidoId, userId])
+  @@index([userId])
+}
+
+model Analisis {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Carpeta del backend con los vídeos y métricas: data/analisis/<jobId>/
+  jobId       String?  @unique
+  fecha       DateTime @default(now())
+  videoNombre String
+  puntuacion  Int
+  tipoGolpe   String
+  resumen     String
+  detalles    String?
+}

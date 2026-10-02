@@ -1,0 +1,30 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Vídeos y resultados de los análisis (datos de usuarios)
+data/analisis/
+data/*.mp4
+data/*.csv
+data/*.json
+data/*.png
+
+# Modelos: solo los que usa el motor (los copia el Dockerfile). El resto se puede
+# descargar de nuevo y ocupa mucho
+models/*
+!models/pose_landmarker_full.task
+!models/yolov8n.pt
+
+# Restos de una instalación por error en la raíz (el frontend tiene sus propias dependencias)
+node_modules/
+/package.json
+/package-lock.json
+
+# Configuración local de Claude
+.claude/
+
+# Sistema
+.DS_Store
+Thumbs.db

@@ -1,0 +1,18 @@
+# Mantener el contexto de build pequeño: sin esto Docker enviaría varios GB
+# (venv, node_modules y los vídeos de data/) al daemon en cada build.
+venv/
+node_modules/
+frontend/
+__pycache__/
+*.pyc
+
+# data/ se monta como volumen en docker-compose, no hace falta copiarlo
+data/
+
+tests/
+docs/
+
+.git/
+.gitignore
+*.md
+analisis.py

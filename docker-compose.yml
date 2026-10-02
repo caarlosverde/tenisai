@@ -1,0 +1,26 @@
+services:
+  backend:
+    build: .
+    container_name: tenisai-backend
+    ports:
+      # Puerto 8001 en el host (el 8000 lo usan otros proyectos); dentro del contenedor sigue siendo 8000
+      - "8001:8000"
+    environment:
+      # URL con la que el navegador llega a la API: se usa para construir las URLs de los vídeos
+      - API_PUBLIC_BASE=http://localhost:8001
+      # Orígenes del frontend autorizados por CORS (separados por comas)
+      - FRONTEND_ORIGINS=http://localhost:3000
+    env_file:
+      # JWT_SECRET: la misma clave con la que el frontend firma las sesiones.
+      # Sin este archivo el backend arranca igual, pero trata a todos como anónimos.
+      - path: ./frontend/.env.local
+        required: false
+    volumes:
+      # Los vídeos procesados y el CSV persisten en el disco de Windows
+      - ./data:/app/data
+      # Código montado en caliente: no hace falta rebuild al editar Python
+      - ./main.py:/app/main.py
+      - ./api.py:/app/api.py
+      - ./biomecanica.py:/app/biomecanica.py
+    command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    restart: unless-stopped

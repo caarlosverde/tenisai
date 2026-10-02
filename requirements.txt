@@ -1,0 +1,18 @@
+# TFG Tenis - Dependencias del backend (API + motor de visión).
+# Versiones fijadas a las del entorno de desarrollo para que el contenedor
+# reproduzca exactamente el comportamiento validado en local.
+
+# API
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+python-multipart==0.0.32
+# Verificación de la sesión del frontend (JWT HS256 firmado con JWT_SECRET)
+PyJWT==2.10.1
+
+# Visión artificial
+mediapipe==1.0.1
+ultralytics==8.4.154
+opencv-python-headless==5.0.0.93
+
+# Procesamiento de señal (filtro Savitzky-Golay de main.py)
+scipy==1.17.1
