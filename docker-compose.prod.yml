@@ -1,0 +1,58 @@
+# TenisAI - Producción en un servidor propio (un VPS con Docker).
+#
+#   1. Apunta el dominio al servidor (registro DNS A) y abre los puertos 80 y 443.
+#   2. Copia .env.produccion.example a .env y rellena DOMINIO y JWT_SECRET.
+#   3. docker compose -f docker-compose.prod.yml up -d --build
+#
+# Solo Caddy queda expuesto: la web y el motor se ven entre ellos por la red interna.
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "${PUERTO_HTTP:-80}:80"
+      - "${PUERTO_HTTPS:-443}:443"
+      - "${PUERTO_HTTPS:-443}:443/udp"
+    environment:
+      - DOMINIO=${DOMINIO:?Falta DOMINIO en .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificados HTTPS: se conservan entre reinicios
+      - caddy_datos:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=file:/datos/tenisai.db
+      - API_INTERNAL_URL=http://backend:8000
+      - JWT_SECRET=${JWT_SECRET:?Falta JWT_SECRET en .env}
+    volumes:
+      # Base de datos SQLite (usuarios, análisis, comunidad)
+      - web_datos:/datos
+
+  backend:
+    build: .
+    restart: unless-stopped
+    environment:
+      # Los vídeos se piden a través de Caddy, en el mismo dominio que la web
+      - API_PUBLIC_BASE=/motor
+      - FRONTEND_ORIGINS=https://${DOMINIO}
+      - JWT_SECRET=${JWT_SECRET}
+      # IP real de quien sube un vídeo (límite de análisis anónimos): se acepta la que
+      # indica Caddy. El motor no tiene puertos publicados, solo le llega lo que reenvía
+      - FORWARDED_ALLOW_IPS=*
+    volumes:
+      # Vídeos y resultados de los análisis
+      - motor_datos:/app/data
+
+volumes:
+  caddy_datos:
+  caddy_config:
+  web_datos:
+  motor_datos:

@@ -11,7 +11,9 @@ test("un visitante ve la portada con la guía y la zona de subida", async ({ pag
 
   await page.getByRole("link", { name: "Analizar un vídeo gratis" }).click();
   await expect(page).toHaveURL(/#analizar$/);
-  await expect(page.getByRole("button", { name: "Seleccionar un vídeo MP4 para analizar" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Seleccionar un vídeo para analizar" })).toBeVisible();
+  // El botón de la cámara solo aparece en pantallas táctiles
+  await expect(page.getByRole("button", { name: "Grabar el golpe con la cámara" })).toBeHidden();
 
   await expect(page.getByRole("contentinfo").getByRole("link", { name: "Política de privacidad" })).toBeVisible();
 });

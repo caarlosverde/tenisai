@@ -9,7 +9,7 @@ export type FilaSet = [string, string];
 const INPUT_JUEGOS =
   "h-12 w-16 rounded-lg bg-zinc-800 text-center font-mono text-lg tabular-nums text-white outline-none ring-1 ring-white/10 transition focus:ring-2 focus:ring-cyan-400/70";
 
-/** Sets escritos → números; las filas vacías del final no cuentan. */
+/** Sets escritos -> números; las filas vacías del final no cuentan. */
 export function setsEscritos(filas: FilaSet[]): { sets: [number, number][]; incompleto: boolean } {
   const usadas = [...filas];
   while (usadas.length > 0 && usadas[usadas.length - 1].every((v) => v.trim() === "")) usadas.pop();
@@ -31,7 +31,7 @@ export default function EntradaSets({
   onCambio: (filas: FilaSet[]) => void;
   /** Cabeceras visibles de las dos columnas ("Tú" / "Rival"). */
   columnas: [string, string];
-  /** Nombre accesible de cada casilla: etiquetas[0](1) → "Set 1: tus juegos". */
+  /** Nombre accesible de cada casilla: etiquetas[0](1) -> "Set 1: tus juegos". */
   etiquetas: [(set: number) => string, (set: number) => string];
 }) {
   function cambiarJuegos(fila: number, columna: 0 | 1, valor: string) {

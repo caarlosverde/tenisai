@@ -1,4 +1,5 @@
 import { Camera, Clock3, FileVideo, PersonStanding, Sun, UserRound } from "lucide-react";
+import { MAX_VIDEO_MB } from "@/lib/video";
 
 export const CONSEJOS_GRABACION = [
   {
@@ -28,8 +29,9 @@ export const CONSEJOS_GRABACION = [
   },
   {
     Icono: FileVideo,
-    titulo: "MP4 de hasta 20 MB",
-    texto: "Si tu móvil lo permite, graba a 60 fps: los golpes rápidos se ven con más detalle.",
+    titulo: `MP4 o MOV de hasta ${MAX_VIDEO_MB} MB`,
+    texto:
+      "Vale el vídeo tal cual sale del móvil. Si tu móvil lo permite, graba a 60 fps: los golpes rápidos se ven con más detalle.",
   },
 ] as const;
 

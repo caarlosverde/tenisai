@@ -27,17 +27,3 @@ export function normalizarEstiloDerecha(value: unknown): EstiloDerecha {
     ? (value as EstiloDerecha)
     : ESTILO_DERECHA_DEFAULT;
 }
-
-export function etiquetaAdaptacion(opts: {
-  lateralidad?: string | null;
-  estiloReves?: string | null;
-  estiloDerecha?: string | null;
-}): string {
-  const lat = normalizarLateralidad(opts.lateralidad);
-  const reves = normalizarEstiloReves(opts.estiloReves);
-  const derecha = normalizarEstiloDerecha(opts.estiloDerecha);
-  const jugador = lat === "zurdo" ? "Zurdo" : "Diestro";
-  const estilo = derecha === "nadal" ? "Lazo" : "clasica";
-  const grip = reves === "1_mano" ? "reves a 1 mano" : "reves a 2 manos";
-  return `Analisis adaptado para jugador ${jugador}, estilo ${estilo}, ${grip}`;
-}

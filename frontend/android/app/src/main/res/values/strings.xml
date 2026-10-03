@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TenisAI</string>
+    <string name="title_activity_main">TenisAI</string>
+    <string name="package_name">com.tenisai.app</string>
+    <string name="custom_url_scheme">com.tenisai.app</string>
+</resources>

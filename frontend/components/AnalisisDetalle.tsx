@@ -281,8 +281,8 @@ export default function AnalisisDetalle({ analisis }: { analisis: AnalisisGuarda
             {estado.tipo === "sin_conexion" ? (
               <Aviso icono={ServerOff} titulo="No se pudo conectar con el motor de análisis">
                 <p>
-                  Los vídeos se sirven desde {API_BASE_URL}. Comprueba que el backend de
-                  Docker está en marcha.
+                  Los vídeos y las métricas no están disponibles ahora mismo. Comprueba tu
+                  conexión e inténtalo de nuevo en unos segundos.
                 </p>
                 <button
                   type="button"

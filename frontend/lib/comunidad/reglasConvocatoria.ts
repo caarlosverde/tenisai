@@ -1,4 +1,4 @@
-// Reglas de «Buscar partido» (convocatorias). Funciones puras: las usan la API, los
+// Reglas de "Buscar partido" (convocatorias). Funciones puras: las usan la API, los
 // formularios y los tests. Las importaciones llevan extensión para que Node las ejecute
 // directamente en los tests.
 import { LIMITES_PERFIL, LUGAR_MAX, NIVELES, esModalidad, type Modalidad, type Nivel } from "./perfil.ts";

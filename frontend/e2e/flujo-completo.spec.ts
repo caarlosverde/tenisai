@@ -27,7 +27,8 @@ async function captura(page: Page, nombre: string, zona?: Locator) {
 }
 
 async function analizarVideo(page: Page, nombre: string) {
-  await page.locator('input[type="file"]').setInputFiles({
+  // El primero elige un archivo; el segundo es el de la cámara del móvil
+  await page.locator('input[type="file"]').first().setInputFiles({
     name: `${nombre}.mp4`,
     mimeType: "video/mp4",
     buffer: await readFile(VIDEO),

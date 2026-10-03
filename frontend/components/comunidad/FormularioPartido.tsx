@@ -29,7 +29,7 @@ export type InicialPartido = {
   companero?: JugadorEncontrado | null;
   rival1?: JugadorEncontrado | null;
   rival2?: JugadorEncontrado | null;
-  /** Convocatoria de «Buscar partido» cuyo resultado se registra: la modalidad queda fija. */
+  /** Convocatoria de "Buscar partido" cuyo resultado se registra: la modalidad queda fija. */
   convocatoriaId?: string;
 };
 

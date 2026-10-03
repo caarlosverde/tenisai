@@ -26,7 +26,8 @@ export default defineConfig({
   },
   webServer: {
     command: "npm run dev",
-    url: "http://localhost:3000",
+    // Con E2E_BASE_URL (p. ej. un next start en otro puerto) se usa ese servidor
+    url: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     reuseExistingServer: true,
     timeout: 120_000,
   },

@@ -63,7 +63,7 @@ const BIOS = [
 
 type Estado = { id: string; nivel: number; individual: JugadorElo; dobles: JugadorElo; victorias: { individual: number; dobles: number } };
 
-// Los resultados ajustados (6-4, 7-5…) salen más a menudo que las palizas
+// Los resultados ajustados (6-4, 7-5...) salen más a menudo que las palizas
 const SETS_GANADOS: SetJuegos[] = [[6, 0], [6, 1], [6, 2], [6, 3], [6, 3], [6, 4], [6, 4], [7, 5], [7, 6]];
 
 /** Sets creíbles para un partido que gana el equipo 1. */
@@ -395,7 +395,7 @@ async function crear(para: string | null) {
       },
     });
   }
-  // «Buscar partido»: convocatorias abiertas en los próximos días
+  // "Buscar partido": convocatorias abiertas en los próximos días
   const convocatorias = [
     { quien: 2, modalidad: "individual", dias: 1, hora: 19, nivel: "avanzado", plazas: 1, comentario: "Pista reservada. Busco a alguien con buen ritmo desde el fondo." },
     { quien: 3, modalidad: "dobles", dias: 2, hora: 10, nivel: null, plazas: 3, comentario: "Partido tranquilo de sábado; luego cañas." },
@@ -456,7 +456,7 @@ async function crear(para: string | null) {
       `@${destino.username}: 4 amigos nuevos, 1 solicitud de amistad y 1 partido por confirmar.`,
     );
 
-    // Y plaza en un partido publicado por una amiga (sale en «Tus próximos partidos»)
+    // Y plaza en un partido publicado por una amiga (sale en "Tus próximos partidos")
     const pasadoManana = new Date();
     pasadoManana.setDate(pasadoManana.getDate() + 2);
     pasadoManana.setHours(19, 30, 0, 0);

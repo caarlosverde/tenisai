@@ -20,6 +20,7 @@ import { useSession } from "@/components/SessionProvider";
 import Link from "next/link";
 import {
   API_BASE_URL,
+  MOTOR_NO_RESPONDE,
   type AnalysisProgress,
   type FeedbackEvent,
   type ResumenGeneral,
@@ -33,11 +34,11 @@ import {
   normalizarLateralidad,
 } from "@/lib/estiloJuego";
 import { tamanoArchivo } from "@/lib/formato";
+import { MAX_VIDEO_BYTES, MAX_VIDEO_MB, formatoVideo, nombreSinExtension } from "@/lib/video";
 import { toast } from "sonner";
 import { flushSync } from "react-dom";
 
-const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
-const API_ANALYZE_URL = `${API_BASE_URL}/analizar-video/`;
+const API_ANALYZE_URL = `${API_BASE_URL}/analizar-video`;
 const POLL_INTERVAL_MS = 700;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -49,8 +50,10 @@ async function detalleDeError(response: Response): Promise<string> {
     const data = (await response.json()) as { detail?: unknown };
     if (typeof data.detail === "string" && data.detail) return data.detail;
   } catch {
-    // Respuesta sin JSON: se usa el código HTTP
+    // Respuesta sin JSON: no es del motor, sino de la web que le reenvía la petición
   }
+  // 500-504 sin detalle: la web no pudo reenviar la petición porque el motor no responde
+  if (response.status >= 500) return MOTOR_NO_RESPONDE;
   return `Error HTTP ${response.status}`;
 }
 
@@ -66,7 +69,7 @@ async function esperarResultado(
 
     const response = await fetch(`${API_BASE_URL}/progreso/${jobId}`);
     if (!response.ok) {
-      throw new Error(`No se pudo consultar el progreso (HTTP ${response.status})`);
+      throw new Error(await detalleDeError(response));
     }
 
     const estado = (await response.json()) as AnalysisProgress;
@@ -107,18 +110,16 @@ export default function HomePage() {
   const acceptFile = useCallback((next: File | null) => {
     if (!next) return;
 
-    const isMp4 =
-      next.type === "video/mp4" || next.name.toLowerCase().endsWith(".mp4");
-    if (!isMp4) {
+    if (!formatoVideo(next)) {
       setFile(null);
-      toast.error("Solo se admiten archivos de vídeo .mp4.");
+      toast.error("Formato no admitido: elige un vídeo MP4 o MOV (vale el de la cámara del móvil).");
       return;
     }
 
-    if (next.size > MAX_FILE_SIZE_BYTES) {
+    if (next.size > MAX_VIDEO_BYTES) {
       setFile(null);
       toast.error(
-        `El archivo supera el límite de 20 MB (${tamanoArchivo(next.size)}). Comprime el vídeo o elige uno más corto.`,
+        `El vídeo supera el límite de ${MAX_VIDEO_MB} MB (${tamanoArchivo(next.size)}). Recórtalo para que solo salga el golpe.`,
       );
       return;
     }
@@ -219,9 +220,7 @@ export default function HomePage() {
           credentials: "include",
         });
       } catch {
-        throw new Error(
-          `no se pudo conectar con el motor de análisis (${API_BASE_URL}). Comprueba que el backend de Docker está en marcha.`,
-        );
+        throw new Error("no se pudo enviar el vídeo. Comprueba tu conexión a internet.");
       }
 
       if (!response.ok) {
@@ -265,7 +264,7 @@ export default function HomePage() {
       // Guardar en el historial del usuario. El jobId enlaza la fila con la
       // carpeta del backend y hace el guardado idempotente.
       const videoNombre =
-        file.name.replace(/\.mp4$/i, "") || "Análisis biomecánico";
+        nombreSinExtension(file.name) || "Análisis biomecánico";
       try {
         const resumen = data.resumen_general;
         const guardado = await fetch("/api/analisis/guardar", {

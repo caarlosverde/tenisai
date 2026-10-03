@@ -69,7 +69,7 @@ export type CoachFeedback = {
 export type CoachHit = {
   t: number;
   zona: ZonaCorporal;
-  /** Regla del motor (codo, terminacion, rodilla…): decide qué se dibuja en la zona. */
+  /** Regla del motor (codo, terminacion, rodilla...): decide qué se dibuja en la zona. */
   categoria?: string;
   titulo: string;
   valor_medido: string;

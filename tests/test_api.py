@@ -43,6 +43,17 @@ def motor_falso(input_path: Path, *, output_dir: Path, on_progress, **_estilo):
     }
 
 
+# Extensiones de los vídeos que ha recibido la normalización falsa
+normalizados: list[str] = []
+
+
+def normalizar_falso(carpeta: Path) -> None:
+    """Como la real (sin ffmpeg): deja la subida como original.mp4."""
+    subida = next(carpeta.glob(f"{api.SUBIDA_FILENAME}.*"))
+    normalizados.append(subida.suffix)
+    subida.replace(carpeta / api.ORIGINAL_FILENAME)
+
+
 def token(usuario_id: str, segundos: int = 60) -> str:
     return jwt.encode(
         {"id": usuario_id, "username": usuario_id, "exp": int(time.time()) + segundos},
@@ -59,6 +70,9 @@ def cliente(tmp_path, monkeypatch):
     monkeypatch.setattr(api, "JWT_SECRET", SECRETO)
     motor = SimpleNamespace(procesar_video=motor_falso, POSE_TRACKS_PATH=Path("pose_tracks.json"))
     monkeypatch.setattr(api, "_motor", lambda: motor)
+    # Sin ffmpeg en los tests: la normalización real se prueba aparte
+    monkeypatch.setattr(api, "_normalizar_video", normalizar_falso)
+    normalizados.clear()
     monkeypatch.setattr(api, "_parar_worker", False)
     # Sin el hilo de limpieza: su primera pasada podría coincidir con la del test
     monkeypatch.setattr(api, "_bucle_limpieza", lambda parar: None)
@@ -77,11 +91,11 @@ def cliente(tmp_path, monkeypatch):
 
 
 def subir(cliente: TestClient, cookie: str | None = None, contenido: bytes = VIDEO_FALSO,
-          nombre: str = "golpe.mp4", tipo: str = "video/mp4"):
+          nombre: str = "golpe.mp4", tipo: str = "video/mp4", ruta: str = "/analizar-video"):
     cookies = {"auth_token": cookie} if cookie else None
     cliente.cookies.clear()
     return cliente.post(
-        "/analizar-video/",
+        ruta,
         files={"file": (nombre, contenido, tipo)},
         cookies=cookies,
     )
@@ -107,9 +121,17 @@ def test_analisis_anonimo_completo(cliente):
     assert not any(clave.startswith("_") for clave in datos)  # sin campos internos
 
     resultado = cliente.get(f"/resultado/{job_id}").json()
-    assert resultado["processed_url"].endswith(f"/data/analisis/{job_id}/resultado_angulos.mp4")
+    # Por defecto, rutas en el mismo origen que la web, que las reenvía al motor
+    assert resultado["processed_url"] == (
+        f"{api.API_PUBLIC_BASE}/data/analisis/{job_id}/resultado_angulos.mp4"
+    )
     manifest = json.loads((api.ANALISIS_DIR / job_id / "resultado.json").read_text(encoding="utf-8"))
     assert manifest["usuario_id"] is None
+
+
+def test_la_subida_acepta_la_ruta_con_barra_final(cliente):
+    # La que usaban las versiones anteriores del frontend
+    assert subir(cliente, ruta="/analizar-video/").status_code == 202
 
 
 def test_con_sesion_se_guarda_el_dueno(cliente):
@@ -158,14 +180,61 @@ def test_limite_por_hora_anonimo(cliente):
     assert "cuenta" in respuesta.json()["detail"]
 
 
-def test_rechaza_archivos_que_no_son_mp4(cliente):
+def test_rechaza_archivos_que_no_son_video(cliente):
     respuesta = subir(cliente, nombre="notas.txt", tipo="text/plain", contenido=b"hola")
+    assert respuesta.status_code == 415
+    respuesta = subir(cliente, nombre="golpe.avi", tipo="video/x-msvideo")
     assert respuesta.status_code == 415
 
 
-def test_rechaza_videos_de_mas_de_20_mb(cliente):
-    respuesta = subir(cliente, contenido=b"\x00" * (api.MAX_VIDEO_BYTES + 1))
+@pytest.mark.parametrize(
+    ("nombre", "tipo", "extension"),
+    [
+        ("IMG_0042.MOV", "video/quicktime", ".mov"),  # iPhone
+        ("VID_20261003.mp4", "video/mp4", ".mp4"),  # Android
+        ("blob", "video/quicktime", ".mov"),  # cámara sin nombre de archivo
+    ],
+)
+def test_acepta_los_videos_de_la_camara_del_movil(cliente, nombre, tipo, extension):
+    respuesta = subir(cliente, nombre=nombre, tipo=tipo)
+    assert respuesta.status_code == 202
+    esperar(cliente, respuesta.json()["job_id"])
+    assert normalizados == [extension]
+
+
+def test_rechaza_videos_demasiado_grandes(cliente, monkeypatch):
+    monkeypatch.setattr(api, "MAX_VIDEO_BYTES", 2048)
+    respuesta = subir(cliente, contenido=b"\x00" * 2049)
     assert respuesta.status_code == 413
+    assert "MB" in respuesta.json()["detail"]
+    assert subir(cliente, contenido=b"").status_code == 400
+
+
+def test_un_video_no_valido_se_explica_al_usuario(cliente, monkeypatch):
+    def demasiado_largo(carpeta: Path) -> None:
+        raise api.VideoNoValido("El vídeo dura 300 s: recórtalo a 90 s como mucho, solo con el golpe.")
+
+    monkeypatch.setattr(api, "_normalizar_video", demasiado_largo)
+    job_id = subir(cliente).json()["job_id"]
+    datos = esperar(cliente, job_id, "error")
+    assert datos["error"].startswith("El vídeo dura 300 s")
+    # No queda nada en disco
+    assert not (api.ANALISIS_DIR / job_id).exists()
+
+
+def test_normalizar_sin_ffmpeg_solo_admite_mp4(tmp_path, monkeypatch):
+    monkeypatch.setattr(api.shutil, "which", lambda programa: None)
+    mp4 = tmp_path / "mp4"
+    mp4.mkdir()
+    (mp4 / "subida.mp4").write_bytes(VIDEO_FALSO)
+    api._normalizar_video(mp4)
+    assert (mp4 / api.ORIGINAL_FILENAME).read_bytes() == VIDEO_FALSO
+
+    mov = tmp_path / "mov"
+    mov.mkdir()
+    (mov / "subida.mov").write_bytes(VIDEO_FALSO)
+    with pytest.raises(api.VideoNoValido, match="solo admite vídeos .mp4"):
+        api._normalizar_video(mov)
 
 
 @pytest.mark.parametrize("job_id", ["abc", "..", "0" * 31, "G" * 32])

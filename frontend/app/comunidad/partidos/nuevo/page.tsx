@@ -61,7 +61,7 @@ export default async function NuevoPartidoPage({ searchParams }: PageProps<"/com
   let origen: string | null = null;
 
   if (typeof convocatoria === "string" && convocatoria) {
-    // Resultado de un partido de «Buscar partido»: jugadores, fecha y lugar ya puestos
+    // Resultado de un partido de "Buscar partido": jugadores, fecha y lugar ya puestos
     const datos = await jugadoresParaResultado(yo.id, convocatoria);
     if (datos) {
       const jugadores = datos.jugadores.map((j) => encontrado(j, relaciones));

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const CONVOCATORIAS_POR_DIA = 10;
 
-/** Publica una convocatoria de «Buscar partido». */
+/** Publica una convocatoria de "Buscar partido". */
 export async function POST(request: Request) {
   try {
     const session = await getSession();

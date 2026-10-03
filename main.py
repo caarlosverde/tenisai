@@ -152,7 +152,7 @@ def calcular_escala(
 def inclinacion_respecto_vertical(
     origen: tuple[float, float], destino: tuple[float, float]
 ) -> float:
-    """Ángulo en grados del vector origen→destino respecto a la vertical de imagen."""
+    """Ángulo en grados del vector origen->destino respecto a la vertical de imagen."""
     vx = destino[0] - origen[0]
     vy = destino[1] - origen[1]
     return abs(math.degrees(math.atan2(vx, -vy)))
@@ -213,7 +213,7 @@ def _visibilidad(landmark) -> float:
 def bbox_normalizada(
     landmarks, margen: float = 0.03, *, redondear: bool = True
 ) -> list[float] | None:
-    """Bounding box del jugador en coords 0–1 a partir de los landmarks."""
+    """Bounding box del jugador en coords 0-1 a partir de los landmarks."""
     xs: list[float] = []
     ys: list[float] = []
     for landmark in landmarks:
@@ -675,16 +675,6 @@ def es_zapatilla(
         y_centro > y_tobillo and abs(x_centro - x_tobillo) < radio
         for x_tobillo, y_tobillo in tobillos
     )
-
-
-def dibujar_pelota(
-    frame: np.ndarray,
-    resultados_yolo,
-    tobillos: list[tuple[float, float]] | None = None,
-) -> int:
-    """Dibuja las cajas de pelota de una inferencia YOLO (API de compatibilidad)."""
-    cajas = extraer_cajas_pelota(resultados_yolo, tobillos, frame.shape[1])
-    return dibujar_cajas_pelota(frame, cajas)
 
 
 def ensure_model_downloaded(model_path: Path = MODEL_PATH, url: str = MODEL_URL) -> Path:

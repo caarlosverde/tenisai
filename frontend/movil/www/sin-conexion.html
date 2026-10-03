@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#020617" />
+    <title>Sin conexión — TenisAI</title>
+    <!--
+      La app la muestra cuando no puede cargar la web (server.errorPath). Es el único archivo
+      local que sirve Capacitor en ese momento: todo va dentro (también el logo), y
+      "Reintentar" lo resuelve la parte nativa (MainActivity), que sabe qué página falló.
+    -->
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+        background: radial-gradient(ellipse at top, #0b1a33 0%, #020617 45%, #000 100%);
+        color: #e2e8f0;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        text-align: center;
+      }
+      main {
+        max-width: 22rem;
+      }
+      img {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+      }
+      h1 {
+        margin: 20px 0 8px;
+        font-size: 1.5rem;
+        color: #fff;
+      }
+      p {
+        margin: 0;
+        line-height: 1.5;
+        color: #94a3b8;
+      }
+      a {
+        display: block;
+        margin-top: 24px;
+        padding: 14px 20px;
+        border-radius: 14px;
+        background: linear-gradient(90deg, #67e8f9, #6ee7b7, #22d3ee);
+        color: #020617;
+        font-size: 1rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      a:focus-visible {
+        outline: 2px solid #67e8f9;
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="data:image/webp;base64,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" alt="" />
+      <h1>Sin conexión</h1>
+      <p>
+        TenisAI necesita internet para analizar tus vídeos y mostrar la comunidad. Comprueba tu
+        conexión y vuelve a intentarlo.
+      </p>
+      <a href="/reintentar">Reintentar</a>
+    </main>
+  </body>
+</html>

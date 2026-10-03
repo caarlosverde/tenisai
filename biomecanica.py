@@ -103,7 +103,6 @@ LAT_ZURDO = "zurdo"
 
 # Umbrales del clasificador (coords normalizadas, Y crece hacia abajo)
 OVERHEAD_MARGEN = 0.015
-MANOS_JUNTAS_MAX = 0.38
 MANOS_JUNTAS_CLARO = 0.30
 MANOS_JUNTAS_SEPARADAS = 0.48
 REVES_MARGEN_X = 0.02
@@ -274,7 +273,7 @@ def _velocidad_muneca(
 
 
 def _picos_impacto(frames: list[dict], vels: list[float]) -> list[float]:
-    """Picos locales de vel_muneca con separación mínima de 1.2 s → t_impacto."""
+    """Picos locales de vel_muneca con separación mínima de 1.2 s -> t_impacto."""
     if len(vels) < 3:
         return []
     vmax = max(vels)

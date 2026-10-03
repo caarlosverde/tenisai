@@ -1,7 +1,7 @@
 // Validación y formato del marcador de un partido. Funciones puras.
 //
 // Un partido se juega a un set, al mejor de 3 o al mejor de 5. Cada set es normal
-// (6-0 … 6-4, 7-5 o 7-6 con tie-break) salvo, opcionalmente, el decisivo, que puede
+// (6-0 ... 6-4, 7-5 o 7-6 con tie-break) salvo, opcionalmente, el decisivo, que puede
 // ser un super tie-break a 10 puntos (habitual en dobles y en torneos amateur).
 
 /** Juegos (o puntos, en un super tie-break) del equipo 1 y del equipo 2. */
@@ -20,7 +20,7 @@ function esSetNormal(a: number, b: number): boolean {
 
 function esSuperTieBreak(a: number, b: number): boolean {
   const [mayor, menor] = a > b ? [a, b] : [b, a];
-  // A 10 con diferencia de 2: 10-8, 11-9, 12-10…
+  // A 10 con diferencia de 2: 10-8, 11-9, 12-10...
   return mayor >= 10 && (mayor === 10 ? mayor - menor >= 2 : mayor - menor === 2);
 }
 

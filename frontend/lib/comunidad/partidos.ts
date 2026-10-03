@@ -53,7 +53,7 @@ export type DatosPartido = {
   companero?: unknown;
   rivales?: unknown;
   sets?: unknown;
-  /** Convocatoria de «Buscar partido» de la que sale el resultado. */
+  /** Convocatoria de "Buscar partido" de la que sale el resultado. */
   convocatoriaId?: unknown;
 };
 

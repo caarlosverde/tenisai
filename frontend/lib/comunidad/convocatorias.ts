@@ -1,4 +1,4 @@
-// «Buscar partido» (servidor): publicar, pedir plaza, aceptar y las vistas de cada convocatoria.
+// "Buscar partido" (servidor): publicar, pedir plaza, aceptar y las vistas de cada convocatoria.
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { claveCiudad, nombreVisible, type Modalidad } from "@/lib/comunidad/perfil";

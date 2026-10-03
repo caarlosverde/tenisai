@@ -4,7 +4,8 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  // En local, frontend/.env (prisma/dev.db); en producción, docker-compose.prod.yml
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -134,7 +135,7 @@ model PartidoTorneo {
   @@unique([torneoId, ronda, posicion])
 }
 
-// «Buscar partido»: alguien publica cuándo y dónde quiere jugar y cuántos jugadores le faltan
+// "Buscar partido": alguien publica cuándo y dónde quiere jugar y cuántos jugadores le faltan
 model Convocatoria {
   id          String                  @id @default(uuid())
   creadorId   String

@@ -1,0 +1,13 @@
+# Finales de línea: LF en el repositorio y en la copia de trabajo (las herramientas del
+# proyecto escriben LF), salvo los .bat, que cmd de Windows necesita con CRLF
+* text=auto eol=lf
+*.bat text eol=crlf
+
+# Binarios: nunca se tocan
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.mp4 binary
+*.task binary
+*.pt binary

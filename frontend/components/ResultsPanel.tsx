@@ -51,7 +51,8 @@ import {
   fallosOrdenados,
   medidaLegible,
 } from "@/lib/consejos";
-import { generarInformePdf } from "@/lib/informePdf";
+import { guardarArchivo } from "@/lib/descargas";
+import { NOMBRE_INFORME_PDF, generarInformePdf } from "@/lib/informePdf";
 
 type ChartRow = {
   Timestamp_ms: number;
@@ -346,13 +347,14 @@ export default function ResultsPanel({
     try {
       const snapshots =
         (await playerRef.current?.capturePhaseSnapshots()) ?? [];
-      generarInformePdf({
+      const pdf = generarInformePdf({
         snapshots,
         resumen: resumenGeneral,
         evaluaciones: feedback,
         usuario: usuarioInforme,
         tipoGolpe,
       });
+      await guardarArchivo(pdf, NOMBRE_INFORME_PDF);
       toast.success("Informe PDF generado");
     } catch (err) {
       console.error("No se pudo generar el informe PDF", err);
@@ -361,6 +363,17 @@ export default function ResultsPanel({
       setGeneratingPdf(false);
     }
   }, [feedback, generatingPdf, resumenGeneral, tipoGolpe, usuarioInforme]);
+
+  const descargarCsv = useCallback(async () => {
+    try {
+      const response = await fetch(csvUrl);
+      if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
+      await guardarArchivo(await response.blob(), "metricas-golpe.csv");
+    } catch (err) {
+      console.error("No se pudo descargar el CSV", err);
+      toast.error("No se pudieron descargar las métricas.");
+    }
+  }, [csvUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -677,14 +690,13 @@ export default function ResultsPanel({
       </section>
 
       <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-        <a
-          href={csvUrl}
-          target="_blank"
-          rel="noreferrer"
+        <button
+          type="button"
+          onClick={() => void descargarCsv()}
           className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300 shadow-lg transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:text-white"
         >
           Descargar métricas CSV
-        </a>
+        </button>
         {actions}
       </div>
     </motion.div>
