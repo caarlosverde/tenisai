@@ -46,7 +46,7 @@ export function siguienteCruce(
   return { ronda: ronda + 1, posicion: Math.floor(posicion / 2), lado: posicion % 2 === 0 ? "a" : "b" };
 }
 
-/** "Final", "Semifinales", "Cuartos de final"… según lo que falta para la final. */
+/** "Final", "Semifinales", "Cuartos de final"... según lo que falta para la final. */
 export function nombreRonda(ronda: number, rondas: number): string {
   const restantes = rondas - ronda;
   return (

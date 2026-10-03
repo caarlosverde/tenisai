@@ -6,7 +6,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * dentro de la app: abre `server.url`, así que las mejoras de la web llegan sin publicar
  * otra versión en Google Play.
  *
- * La dirección la fija scripts/movil.mts (npm run movil -- emulador | wifi | https://…).
+ * La dirección la fija scripts/movil.mts (npm run movil -- emulador | wifi | https://...).
  */
 const url = process.env.TENISAI_URL ?? "http://10.0.2.2:3000";
 

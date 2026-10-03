@@ -36,7 +36,7 @@ function Situacion({ c }: { c: ConvocatoriaVista }) {
   return null;
 }
 
-/** Convocatoria de «Buscar partido» en una lista: toda la tarjeta lleva al detalle. */
+/** Convocatoria de "Buscar partido" en una lista: toda la tarjeta lleva al detalle. */
 export default function TarjetaConvocatoria({ convocatoria: c }: { convocatoria: ConvocatoriaVista }) {
   const { dia, hora } = diaYHora(c.fechaHora);
   const nivel = etiquetaNivel(c.nivel);

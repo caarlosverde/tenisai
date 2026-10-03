@@ -64,7 +64,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 ANALISIS_DIR = DATA_DIR / "analisis"
 ORIGINAL_FILENAME = "original.mp4"
 MANIFEST_FILENAME = "resultado.json"
-# El vídeo tal como llega (subida.mp4, subida.mov…); se normaliza a original.mp4 y se borra
+# El vídeo tal como llega (subida.mp4, subida.mov...); se normaliza a original.mp4 y se borra
 SUBIDA_FILENAME = "subida"
 # Lo que graban los móviles: MP4 en Android, MOV (H.264 o HEVC) en iPhone
 TIPOS_VIDEO = {"video/mp4": ".mp4", "video/quicktime": ".mov", "video/x-m4v": ".m4v"}

@@ -25,9 +25,6 @@ node_modules/
 # Secretos del servidor de producción (docker-compose.prod.yml)
 /.env
 
-# Configuración local de Claude
-.claude/
-
 # Sistema
 .DS_Store
 Thumbs.db

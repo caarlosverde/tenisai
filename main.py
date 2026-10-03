@@ -152,7 +152,7 @@ def calcular_escala(
 def inclinacion_respecto_vertical(
     origen: tuple[float, float], destino: tuple[float, float]
 ) -> float:
-    """Ángulo en grados del vector origen→destino respecto a la vertical de imagen."""
+    """Ángulo en grados del vector origen->destino respecto a la vertical de imagen."""
     vx = destino[0] - origen[0]
     vy = destino[1] - origen[1]
     return abs(math.degrees(math.atan2(vx, -vy)))
@@ -213,7 +213,7 @@ def _visibilidad(landmark) -> float:
 def bbox_normalizada(
     landmarks, margen: float = 0.03, *, redondear: bool = True
 ) -> list[float] | None:
-    """Bounding box del jugador en coords 0–1 a partir de los landmarks."""
+    """Bounding box del jugador en coords 0-1 a partir de los landmarks."""
     xs: list[float] = []
     ys: list[float] = []
     for landmark in landmarks:

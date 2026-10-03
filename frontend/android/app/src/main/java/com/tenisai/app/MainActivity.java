@@ -41,7 +41,7 @@ public class MainActivity extends BridgeActivity {
      * Página de sin conexión (server.errorPath, movil/www/sin-conexion.html):
      * - solo cuando no hay red o el servidor no responde; la web ya tiene sus propias páginas
      *   de error (404, 500), que se muestran tal cual;
-     * - su botón «Reintentar» abre https://localhost/reintentar, que aquí vuelve a cargar la
+     * - su botón "Reintentar" abre https://localhost/reintentar, que aquí vuelve a cargar la
      *   página que falló (la de sin conexión no puede saber cuál era ni la dirección de la web).
      */
     private static class ClienteWeb extends BridgeWebViewClient {

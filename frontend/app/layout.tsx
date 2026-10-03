@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
   },
-  // Instalada en el iPhone («Añadir a pantalla de inicio»): pantalla completa con su nombre
+  // Instalada en el iPhone ("Añadir a pantalla de inicio"): pantalla completa con su nombre
   appleWebApp: {
     capable: true,
     title: "TenisAI",

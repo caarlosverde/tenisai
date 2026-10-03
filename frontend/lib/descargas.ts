@@ -17,7 +17,7 @@ function base64(blob: Blob): Promise<string> {
 /**
  * Guarda un archivo generado en el navegador (el informe PDF, el CSV de métricas).
  * En la web lo descarga. En la app, el WebView no gestiona descargas: se guarda en la
- * caché de la app y se abre el menú de compartir de Android (Drive, Archivos, WhatsApp…).
+ * caché de la app y se abre el menú de compartir de Android (Drive, Archivos, WhatsApp...).
  */
 export async function guardarArchivo(blob: Blob, nombre: string): Promise<void> {
   if (!esAppNativa()) {

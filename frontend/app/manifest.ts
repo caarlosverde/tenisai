@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-// Manifiesto de la app instalable (PWA): con él el móvil ofrece «Instalar TenisAI» y la
+// Manifiesto de la app instalable (PWA): con él el móvil ofrece "Instalar TenisAI" y la
 // abre a pantalla completa con su icono, como una app más
 export default function manifest(): MetadataRoute.Manifest {
   return {

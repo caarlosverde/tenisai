@@ -204,7 +204,7 @@ export async function DELETE(request: Request) {
     }
 
     // Los análisis, amistades y bloqueos se borran en cascada con el usuario. Los
-    // partidos confirmados siguen en el historial de los demás («Cuenta eliminada»);
+    // partidos confirmados siguen en el historial de los demás ("Cuenta eliminada");
     // los que aún no contaban se retiran, y los que se quedan sin ningún jugador, también
     await prisma.$transaction([
       prisma.partido.deleteMany({

@@ -41,7 +41,7 @@ def main() -> None:
     circulo.convert("RGBA").save(app / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
 
     # Iconos de la app instalable (manifest): normales y "maskable". Android recorta los
-    # maskable con la forma del fabricante (círculo, gota…): el logo va dentro de la zona
+    # maskable con la forma del fabricante (círculo, gota...): el logo va dentro de la zona
     # segura (el 80 % central) sobre el fondo de la app
     iconos = RAIZ / "public" / "iconos"
     iconos.mkdir(exist_ok=True)

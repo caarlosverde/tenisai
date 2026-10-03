@@ -31,7 +31,7 @@ function media(jugadores: JugadorElo[]): number {
 }
 
 /**
- * Puntos de cada jugador tras el partido (id → puntos nuevos).
+ * Puntos de cada jugador tras el partido (id -> puntos nuevos).
  *
  * Cada equipo juega con la media de sus jugadores (en individual, la del único
  * jugador). Ganar a quien se esperaba que ganara da más puntos que ganar al débil.

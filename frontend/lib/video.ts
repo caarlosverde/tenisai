@@ -22,7 +22,7 @@ export function formatoVideo(archivo: { name: string; type: string }): "MP4" | "
   return null;
 }
 
-/** Nombre para el historial: sin extensión ("IMG_0042.MOV" → "IMG_0042"). */
+/** Nombre para el historial: sin extensión ("IMG_0042.MOV" -> "IMG_0042"). */
 export function nombreSinExtension(nombre: string): string {
   return nombre.replace(/\.[a-z0-9]{2,4}$/i, "");
 }

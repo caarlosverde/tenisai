@@ -135,7 +135,7 @@ model PartidoTorneo {
   @@unique([torneoId, ronda, posicion])
 }
 
-// «Buscar partido»: alguien publica cuándo y dónde quiere jugar y cuántos jugadores le faltan
+// "Buscar partido": alguien publica cuándo y dónde quiere jugar y cuántos jugadores le faltan
 model Convocatoria {
   id          String                  @id @default(uuid())
   creadorId   String

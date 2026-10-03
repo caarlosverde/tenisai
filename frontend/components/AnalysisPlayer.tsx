@@ -27,7 +27,7 @@ import {
   StepBack,
   StepForward,
 } from "lucide-react";
-// La lógica pura (tipos, poses, dibujo en canvas…) vive en ./analysis-player/
+// La lógica pura (tipos, poses, dibujo en canvas...) vive en ./analysis-player/
 import {
   type CoachFeedback,
   type CoachHit,
@@ -462,7 +462,7 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
         };
       }
 
-      // Suavizado dependiente del tiempo real: igual de fluido a 0,15× que a 1×
+      // Suavizado dependiente del tiempo real: igual de fluido a 0,15x que a 1x
       const z = zoomRef.current;
       const ahora = performance.now();
       const dt = z.ultimo ? (ahora - z.ultimo) / 1000 : 1;
@@ -737,7 +737,7 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
     seekTo(ratio * duration);
   };
 
-  // Teclado: flechas ±0,5 s, Re Pág/Av Pág ±2 s, Inicio/Fin (sin reanudar la reproducción)
+  // Teclado: flechas +/-0,5 s, Re Pág/Av Pág +/-2 s, Inicio/Fin (sin reanudar la reproducción)
   const onTimelineKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const video = videoRef.current;
     if (!video || !duration) return;

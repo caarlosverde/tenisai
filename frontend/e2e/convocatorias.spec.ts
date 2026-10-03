@@ -7,7 +7,7 @@ import {
 } from "@playwright/test";
 
 /**
- * «Buscar partido» con tres jugadores: publicar, pedir plaza, aceptar, registrar el
+ * "Buscar partido" con tres jugadores: publicar, pedir plaza, aceptar, registrar el
  * resultado, darse de baja y cancelar. No necesita el motor de análisis.
  */
 
@@ -137,7 +137,7 @@ test("buscar partido: publicar, pedir plaza, aceptar, resultado, baja y cancelac
     await dialogo.getByRole("button", { name: "Enviar solicitud" }).click();
     await expect(bea.getByText("Has pedido plaza.")).toBeVisible();
 
-    // Carlos es de Getafe: no lo ve con su ciudad, sí con «Todas las ciudades»
+    // Carlos es de Getafe: no lo ve con su ciudad, sí con "Todas las ciudades"
     await carlos.goto("/comunidad/convocatorias");
     const paraCarlos = carlos.getByRole("region", { name: "Partidos que buscan jugadores" });
     await expect(paraCarlos).not.toContainText(LUGAR);
