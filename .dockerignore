@@ -14,5 +14,8 @@ docs/
 
 .git/
 .gitignore
+# Secretos del servidor: nunca en el contexto de una imagen
+.env
+.env.*
 *.md
 analisis.py

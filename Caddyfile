@@ -1,0 +1,27 @@
+# TenisAI - Proxy inverso de producción (docker-compose.prod.yml).
+# Caddy obtiene y renueva solo el certificado HTTPS del dominio (Let's Encrypt).
+#
+#   https://DOMINIO/motor/...  ->  motor de análisis (FastAPI), sin el prefijo /motor
+#   https://DOMINIO/...        ->  web (Next.js)
+
+{$DOMINIO} {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	handle_path /motor/* {
+		# Margen sobre el límite de 150 MB que aplica el propio motor
+		request_body {
+			max_size 160MB
+		}
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		encode zstd gzip
+		reverse_proxy frontend:3000
+	}
+}

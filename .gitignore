@@ -22,6 +22,9 @@ node_modules/
 /package.json
 /package-lock.json
 
+# Secretos del servidor de producción (docker-compose.prod.yml)
+/.env
+
 # Configuración local de Claude
 .claude/
 

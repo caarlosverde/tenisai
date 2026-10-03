@@ -41,8 +41,8 @@ después.
 - **Historial**: evolución por tipo de golpe, detalle de cada análisis, comparación de
   dos análisis (vídeos sincronizados y aspecto por aspecto) y borrado.
 - **Sin cuenta** también se puede analizar; ese análisis se borra a las 24 horas.
-- **App para el móvil** (PWA): se instala desde el navegador con su icono y se abre a
-  pantalla completa; botón para **grabar el golpe con la cámara**, barra de navegación
+- **App de Android** (Capacitor, lista para Google Play) y **app instalable** (PWA) desde el
+  navegador, con su icono y a pantalla completa; botón para **grabar el golpe con la cámara**, barra de navegación
   inferior, respeto de la muesca y página propia sin conexión. Admite los vídeos tal como
   salen del móvil (MP4 de Android o MOV/HEVC de iPhone, hasta 150 MB y 90 s): el motor los
   normaliza a MP4 H.264 aplicando la rotación del móvil y limitándolos a 1280 px y 60 fps.
@@ -64,13 +64,13 @@ después.
 
 ```mermaid
 flowchart LR
-    N[Navegador] -- páginas y /api/* --> F["Frontend · Next.js 16<br/>(localhost:3000)"]
+    N["Navegador o<br/>app de Android"] -- "páginas y /api/*" --> F["Frontend · Next.js 16<br/>(localhost:3000)"]
     F -- Prisma --> DB[("SQLite<br/>usuarios e historial")]
-    N -- "vídeo + cookie de sesión" --> B["Backend · FastAPI<br/>(localhost:8001, Docker)"]
+    N -- "/motor/*: vídeo, progreso,<br/>resultados (con la cookie)" --> F
+    F -- "reenvía /motor/*" --> B["Backend · FastAPI<br/>(localhost:8001, Docker)"]
     B --> C{{"Cola de análisis<br/>(un hilo)"}}
     C --> M["Motor de visión<br/>main.py + biomecanica.py"]
     M --> D[("data/analisis/&lt;id&gt;/<br/>vídeos, métricas, resultado.json")]
-    N -- "vídeos y resultados" --> B
     F -. "borrado de vídeos<br/>(con la sesión del usuario)" .-> B
 ```
 
@@ -81,9 +81,14 @@ flowchart LR
 | `main.py` | OpenCV, MediaPipe Pose, YOLOv8 | Pose, pelota, ángulos, vídeo anotado, CSV y `pose_tracks.json` |
 | `biomecanica.py` | Python estándar | Fases del golpe, tipo de golpe, reglas, nota y consejos |
 
+El navegador solo habla con la web: lo que pide en `/motor/...` lo reenvía Next al backend
+(`rewrites` de `next.config.ts`), con la cookie de sesión y las peticiones parciales de los
+vídeos. Así todo comparte un origen (sin CORS), igual en el ordenador, en la app y en
+producción, donde ese reenvío lo hace Caddy (ver [Producción](#producción)).
+
 **Flujo de un análisis**
 
-1. El navegador sube el vídeo a `POST /analizar-video/` con la cookie de sesión. El
+1. El navegador sube el vídeo a `POST /motor/analizar-video` con la cookie de sesión. El
    backend identifica al usuario (o la IP si es anónimo), aplica los límites y lo pone
    en la cola.
 2. El hilo de la cola lo normaliza con ffmpeg (formato, rotación, tamaño y fotogramas por
@@ -151,11 +156,82 @@ confirmar y plaza en un partido de pasado mañana.
 | Variable | Dónde | Por defecto | Para qué |
 | --- | --- | --- | --- |
 | `JWT_SECRET` | `frontend/.env.local` (el backend lo lee del mismo archivo) | clave de desarrollo | Firmar y verificar las sesiones. **Obligatoria en producción** (≥ 32 caracteres) |
-| `NEXT_PUBLIC_API_URL` | frontend | `http://localhost:8001` | Dirección del backend desde el navegador |
-| `API_INTERNAL_URL` | frontend | `NEXT_PUBLIC_API_URL` | Dirección del backend desde el servidor de Next |
+| `DATABASE_URL` | `frontend/.env` | `file:./dev.db` | Base de datos SQLite |
+| `API_INTERNAL_URL` | frontend | `http://localhost:8001` | Dirección del backend desde el servidor de Next (reenvío de `/motor` y borrados) |
+| `NEXT_PUBLIC_API_URL` | frontend | `/motor` | Dirección del backend desde el navegador; solo para llamarlo directamente |
 | `NEXT_PUBLIC_SITE_URL` | frontend | `http://localhost:3000` | URL pública (imágenes al compartir enlaces) |
-| `API_PUBLIC_BASE` | `docker-compose.yml` | `http://localhost:8001` | URL con la que el navegador llega a los vídeos |
-| `FRONTEND_ORIGINS` | `docker-compose.yml` | `http://localhost:3000` | Orígenes permitidos por CORS |
+| `API_PUBLIC_BASE` | `docker-compose.yml` | `/motor` | Base de las URLs de los vídeos que devuelve el backend |
+| `FRONTEND_ORIGINS` | `docker-compose.yml` | `http://localhost:3000` | Orígenes permitidos por CORS (si el navegador llama al backend directamente) |
+| `FORWARDED_ALLOW_IPS` | backend | `127.0.0.1` | Proxies de los que el backend acepta la IP del cliente (`X-Forwarded-For`) |
+
+## Producción
+
+Pensado para un servidor propio (un VPS con Docker; el motor de visión va mejor con 4
+núcleos y 8 GB de RAM). Caddy recibe todo por HTTPS, pide y renueva el certificado solo, y
+reparte: `/motor/*` al motor y el resto a la web. Solo Caddy tiene puertos abiertos.
+
+```bash
+# En el servidor, con el dominio ya apuntando a su IP y los puertos 80 y 443 abiertos
+cp .env.produccion.example .env      # DOMINIO y JWT_SECRET
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+- La web se compila en su propia imagen (`frontend/Dockerfile`, salida `standalone` de
+  Next) y aplica las migraciones pendientes al arrancar.
+- Datos en volúmenes de Docker: `web_datos` (base de datos SQLite) y `motor_datos` (vídeos
+  y resultados). Son lo que hay que copiar en las copias de seguridad.
+- El motor acepta la IP real del cliente que le indica Caddy (`FORWARDED_ALLOW_IPS`), así
+  que el límite de análisis anónimos es por persona.
+- Organizadores: `docker compose -f docker-compose.prod.yml exec frontend node
+  scripts/organizador.mts usuario --organizacion "Club"` (mismas opciones que en local).
+- Antes de abrirlo al público: rellenar `frontend/lib/legal.ts` y revisar la licencia de
+  YOLOv8 (ver [Limitaciones](#limitaciones-conocidas)).
+
+## App de Android
+
+`frontend/android/` es la app de Android, hecha con [Capacitor](https://capacitorjs.com):
+la web dentro de un WebView, así que cada mejora de la web llega a la app sin publicar
+una versión nueva. Lo que aporta la app:
+
+- icono, pantalla de arranque y barra de estado con los colores de TenisAI;
+- «Grabar el golpe» abre la cámara del móvil (sin pedir permiso de cámara: graba la app
+  de cámara del sistema y devuelve el vídeo);
+- el informe PDF y el CSV se comparten con el menú de Android (Drive, Archivos, WhatsApp…),
+  porque un WebView no descarga archivos;
+- botón Atrás: vuelve a la página anterior y, en la primera, deja la app en segundo plano;
+- página propia sin conexión con «Reintentar»; un 404 de la web se sigue viendo como tal.
+
+Requisitos para compilarla: [Android Studio](https://developer.android.com/studio) (trae
+el SDK de Android y el JDK que necesita Gradle).
+
+```bash
+cd frontend
+npm run movil -- emulador            # la web de este ordenador, vista desde el emulador
+npm run movil -- wifi                # o desde un móvil conectado a la misma wifi
+npm run movil -- https://midominio   # la web publicada (lo que se sube a Google Play)
+npm run movil -- emulador --abrir    # además abre el proyecto en Android Studio
+```
+
+En desarrollo la web debe estar en marcha (`npm run dev`). Para el móvil por wifi, el
+cortafuegos de Windows tiene que permitir conexiones entrantes al puerto 3000 en redes
+privadas (Windows lo pregunta la primera vez que Node escucha en la red).
+
+**Publicar en Google Play**
+
+1. Cuenta de desarrollador de Google Play (pago único de 25 $ y verificación de
+   identidad). Las cuentas personales nuevas deben hacer antes una prueba cerrada con al
+   menos 12 testers durante 14 días.
+2. La web publicada con HTTPS ([Producción](#producción)) y `npm run movil -- https://…`.
+3. En Android Studio, *Build → Generate Signed App Bundle* crea el `.aab` firmado. La clave
+   de firma (`.jks`) no se sube nunca al repositorio (`android/.gitignore`): guárdala con su
+   contraseña en un lugar seguro, sin ella no se pueden publicar actualizaciones.
+4. Ficha de la tienda: icono y gráfico destacado en `frontend/movil/play/` (los genera
+   `scripts/generar_imagenes.py`), capturas del móvil, URL de la política de privacidad
+   (`/privacidad`) y el formulario de seguridad de los datos.
+
+Antes de la primera publicación se puede cambiar el identificador `com.tenisai.app`
+(`capacitor.config.ts` y `android/app/build.gradle`); después ya no. Cada versión nueva de
+la app necesita subir `versionCode` en `android/app/build.gradle`.
 
 ## Tests
 
@@ -200,7 +276,10 @@ CAPTURAS=1 npx playwright test           # además regenera docs/capturas
     perfil e invitación de pareja en dobles).
 
 Con el equipo cargado, los tests van más rápidos y estables contra una compilación de
-producción (`npx next build` y `npm run start`) que contra `npm run dev`.
+producción (`npx next build` y `npm run start`) que contra `npm run dev`. Con
+`E2E_BASE_URL` se lanzan contra otro servidor (por ejemplo la pila de producción en local);
+la de torneos da el rol de organizador con el script sobre la base de datos local, así que
+solo funciona contra la web de este ordenador.
 
 Calidad del frontend: `npm run typecheck` y `npm run lint`.
 
@@ -238,8 +317,9 @@ Calidad del frontend: `npm run typecheck` y `npm run lint`.
   se jugaron. Un partido confirmado ya no se puede retirar.
 - Los vídeos y resultados se protegen con un identificador aleatorio de 128 bits (como
   un enlace privado), sin comprobar la sesión en cada petición.
-- En local la cookie de sesión llega al backend porque las cookies no distinguen
-  puertos; en producción el frontend y la API deben compartir dominio.
+- En desarrollo, el reenvío de `/motor` de Next copia en memoria cada vídeo que sube (hasta
+  160 MB) y el backend ve a todos los anónimos con la misma IP. En producción lo reenvía
+  Caddy, sin esas limitaciones.
 - Ultralytics (YOLOv8) se distribuye con licencia **AGPL-3.0**: si TenisAI se ofrece
   públicamente como servicio, hay que publicar su código bajo una licencia compatible o
   adquirir una licencia comercial. MediaPipe usa Apache 2.0.
@@ -260,6 +340,10 @@ frontend/
   prisma/            Esquema y migraciones de la base de datos
   e2e/               Tests de Playwright
   lib/comunidad/     Puntos Elo, marcador, amistades, partidos y ranking (con sus tests)
-  scripts/           Iconos e imagen para compartir; datos de ejemplo de la comunidad
+  scripts/           Iconos e imágenes; datos de ejemplo; preparar la app de Android
+  android/           App de Android (Capacitor)
+  movil/             Páginas locales de la app y gráficos de Google Play
+  Dockerfile         Imagen de la web para producción
+docker-compose.prod.yml, Caddyfile   Producción con HTTPS
 docs/capturas/       Capturas del README
 ```

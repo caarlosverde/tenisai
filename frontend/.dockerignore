@@ -1,0 +1,18 @@
+# Se instalan y compilan dentro de la imagen
+node_modules
+.next
+*.tsbuildinfo
+next-env.d.ts
+
+# Datos y secretos locales: nunca dentro de una imagen
+prisma/*.db
+prisma/*.db-journal
+.env.local
+.env.*.local
+
+# Pruebas y app de Android: no forman parte de la web
+e2e
+test-results
+playwright-report
+android
+movil
