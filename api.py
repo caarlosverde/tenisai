@@ -71,8 +71,9 @@ TIPOS_VIDEO = {"video/mp4": ".mp4", "video/quicktime": ".mov", "video/x-m4v": ".
 
 # --- Configuración (variables de entorno; en Docker las fija docker-compose.yml) ---
 
-# URL con la que el navegador llega a esta API
-API_PUBLIC_BASE = os.environ.get("API_PUBLIC_BASE", "http://localhost:8001")
+# URL con la que el navegador llega a esta API: por defecto, a través de la web (/motor/...),
+# en el mismo origen que el frontend
+API_PUBLIC_BASE = os.environ.get("API_PUBLIC_BASE", "/motor").rstrip("/")
 # Orígenes del frontend autorizados por CORS, separados por comas
 FRONTEND_ORIGINS = [
     origen.strip().rstrip("/")
@@ -270,7 +271,9 @@ def _identificar_llamante(request: Request) -> Llamante:
     if usuario_id:
         return Llamante(f"usuario:{usuario_id}", usuario_id)
 
-    # Detrás de un proxy, arrancar uvicorn con --proxy-headers para ver la IP real
+    # uvicorn solo toma la IP de X-Forwarded-For si la petición llega de un proxy de confianza
+    # (variable FORWARDED_ALLOW_IPS; por defecto, ninguno fuera de 127.0.0.1): si no, un
+    # cliente podría inventarse la cabecera para saltarse el límite de análisis anónimos
     ip = request.client.host if request.client else "desconocida"
     return Llamante(f"ip:{ip}", None)
 
@@ -541,7 +544,10 @@ def _tamano_subida(origen: Any) -> int:
     return tamano
 
 
-@app.post("/analizar-video/", status_code=202)
+# Sin barra final: Next redirige /motor/analizar-video/ a /motor/analizar-video al reenviar.
+# La ruta con barra se mantiene para los clientes que ya la usaban
+@app.post("/analizar-video", status_code=202)
+@app.post("/analizar-video/", status_code=202, include_in_schema=False)
 async def analizar_video(
     request: Request,
     file: UploadFile = File(...),

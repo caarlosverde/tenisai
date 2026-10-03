@@ -1,7 +1,14 @@
-// Motor de análisis (FastAPI en Docker, publicado en el 8001 del host).
-// Configurable con NEXT_PUBLIC_API_URL para cuando se despliegue fuera de local.
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+// Motor de análisis (FastAPI). El navegador lo llama a través de la propia web, en
+// /motor/..., y Next lo reenvía (next.config.ts): un solo origen que funciona igual en el
+// navegador, en la app de Android y en producción, y con el que la cookie de sesión llega
+// sin necesidad de CORS. NEXT_PUBLIC_API_URL permite apuntar a otra dirección.
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/motor";
+
+/** Dirección del motor desde el servidor de Next (reenvío de /motor y llamadas internas). */
+export const MOTOR_INTERNO_URL = process.env.API_INTERNAL_URL ?? "http://localhost:8001";
+
+export const MOTOR_NO_RESPONDE =
+  "el motor de análisis no responde ahora mismo. Inténtalo de nuevo en unos minutos.";
 
 export type FeedbackTipo = "alerta" | "mejora" | "optimo" | "correcto" | "aviso";
 

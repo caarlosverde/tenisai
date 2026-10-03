@@ -4,7 +4,8 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  // En local, frontend/.env (prisma/dev.db); en producción, docker-compose.prod.yml
+  url      = env("DATABASE_URL")
 }
 
 model User {

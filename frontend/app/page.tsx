@@ -20,6 +20,7 @@ import { useSession } from "@/components/SessionProvider";
 import Link from "next/link";
 import {
   API_BASE_URL,
+  MOTOR_NO_RESPONDE,
   type AnalysisProgress,
   type FeedbackEvent,
   type ResumenGeneral,
@@ -37,7 +38,7 @@ import { MAX_VIDEO_BYTES, MAX_VIDEO_MB, formatoVideo, nombreSinExtension } from 
 import { toast } from "sonner";
 import { flushSync } from "react-dom";
 
-const API_ANALYZE_URL = `${API_BASE_URL}/analizar-video/`;
+const API_ANALYZE_URL = `${API_BASE_URL}/analizar-video`;
 const POLL_INTERVAL_MS = 700;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -49,8 +50,10 @@ async function detalleDeError(response: Response): Promise<string> {
     const data = (await response.json()) as { detail?: unknown };
     if (typeof data.detail === "string" && data.detail) return data.detail;
   } catch {
-    // Respuesta sin JSON: se usa el código HTTP
+    // Respuesta sin JSON: no es del motor, sino de la web que le reenvía la petición
   }
+  // 500-504 sin detalle: la web no pudo reenviar la petición porque el motor no responde
+  if (response.status >= 500) return MOTOR_NO_RESPONDE;
   return `Error HTTP ${response.status}`;
 }
 
@@ -66,7 +69,7 @@ async function esperarResultado(
 
     const response = await fetch(`${API_BASE_URL}/progreso/${jobId}`);
     if (!response.ok) {
-      throw new Error(`No se pudo consultar el progreso (HTTP ${response.status})`);
+      throw new Error(await detalleDeError(response));
     }
 
     const estado = (await response.json()) as AnalysisProgress;
@@ -217,9 +220,7 @@ export default function HomePage() {
           credentials: "include",
         });
       } catch {
-        throw new Error(
-          `no se pudo conectar con el motor de análisis (${API_BASE_URL}). Comprueba que el backend de Docker está en marcha.`,
-        );
+        throw new Error("no se pudo enviar el vídeo. Comprueba tu conexión a internet.");
       }
 
       if (!response.ok) {

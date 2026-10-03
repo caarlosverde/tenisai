@@ -91,11 +91,11 @@ def cliente(tmp_path, monkeypatch):
 
 
 def subir(cliente: TestClient, cookie: str | None = None, contenido: bytes = VIDEO_FALSO,
-          nombre: str = "golpe.mp4", tipo: str = "video/mp4"):
+          nombre: str = "golpe.mp4", tipo: str = "video/mp4", ruta: str = "/analizar-video"):
     cookies = {"auth_token": cookie} if cookie else None
     cliente.cookies.clear()
     return cliente.post(
-        "/analizar-video/",
+        ruta,
         files={"file": (nombre, contenido, tipo)},
         cookies=cookies,
     )
@@ -121,9 +121,17 @@ def test_analisis_anonimo_completo(cliente):
     assert not any(clave.startswith("_") for clave in datos)  # sin campos internos
 
     resultado = cliente.get(f"/resultado/{job_id}").json()
-    assert resultado["processed_url"].endswith(f"/data/analisis/{job_id}/resultado_angulos.mp4")
+    # Por defecto, rutas en el mismo origen que la web, que las reenvía al motor
+    assert resultado["processed_url"] == (
+        f"{api.API_PUBLIC_BASE}/data/analisis/{job_id}/resultado_angulos.mp4"
+    )
     manifest = json.loads((api.ANALISIS_DIR / job_id / "resultado.json").read_text(encoding="utf-8"))
     assert manifest["usuario_id"] is None
+
+
+def test_la_subida_acepta_la_ruta_con_barra_final(cliente):
+    # La que usaban las versiones anteriores del frontend
+    assert subir(cliente, ruta="/analizar-video/").status_code == 202
 
 
 def test_con_sesion_se_guarda_el_dueno(cliente):

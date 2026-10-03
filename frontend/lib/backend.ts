@@ -1,10 +1,9 @@
 import { SignJWT } from "jose";
-import { API_BASE_URL } from "@/lib/api";
+import { MOTOR_INTERNO_URL } from "@/lib/api";
 import { getJwtSecret } from "@/lib/authToken";
 
-// Desde el servidor de Next el backend puede tener otra dirección (p. ej. el
-// nombre del servicio en Docker); en local es la misma que usa el navegador.
-const API_INTERNAL_URL = process.env.API_INTERNAL_URL ?? API_BASE_URL;
+// Desde el servidor de Next se llama al motor directamente (no a través de /motor)
+const API_INTERNAL_URL = MOTOR_INTERNO_URL;
 
 /**
  * Permiso firmado para una única operación: borrar el análisis `jobId` del usuario.

@@ -6,9 +6,11 @@ services:
       # Puerto 8001 en el host (el 8000 lo usan otros proyectos); dentro del contenedor sigue siendo 8000
       - "8001:8000"
     environment:
-      # URL con la que el navegador llega a la API: se usa para construir las URLs de los vídeos
-      - API_PUBLIC_BASE=http://localhost:8001
-      # Orígenes del frontend autorizados por CORS (separados por comas)
+      # URL con la que el navegador llega a la API: se usa para construir las URLs de los vídeos.
+      # /motor: a través de la propia web, que reenvía al backend (mismo origen, sin CORS)
+      - API_PUBLIC_BASE=/motor
+      # Orígenes del frontend autorizados por CORS, solo si el navegador llama al backend
+      # directamente (NEXT_PUBLIC_API_URL=http://localhost:8001)
       - FRONTEND_ORIGINS=http://localhost:3000
     env_file:
       # JWT_SECRET: la misma clave con la que el frontend firma las sesiones.
