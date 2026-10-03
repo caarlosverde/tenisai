@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fondo del icono adaptable y de la pantalla de arranque: el de la web (#020617) -->
+    <color name="ic_launcher_background">#020617</color>
+    <color name="fondo_app">#020617</color>
+</resources>

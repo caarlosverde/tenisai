@@ -77,7 +77,10 @@ function ensureY(doc: jsPDF, y: number, needed: number): number {
   return 18;
 }
 
-export function generarInformePdf(input: InformePdfInput): void {
+export const NOMBRE_INFORME_PDF = "informe-biomecanico-tenis.pdf";
+
+/** Genera el informe y lo devuelve como PDF (se guarda con `guardarArchivo`). */
+export function generarInformePdf(input: InformePdfInput): Blob {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = 210;
   const margin = 14;
@@ -322,5 +325,5 @@ export function generarInformePdf(input: InformePdfInput): void {
     doc.text(`${i} / ${pages}`, pageW - margin, 289, { align: "right" });
   }
 
-  doc.save("informe-biomecanico-tenis.pdf");
+  return doc.output("blob");
 }
