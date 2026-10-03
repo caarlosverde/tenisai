@@ -27,6 +27,7 @@ import math
 import os
 import re
 import shutil
+import subprocess
 import threading
 import time
 import uuid
@@ -63,6 +64,10 @@ DATA_DIR = PROJECT_ROOT / "data"
 ANALISIS_DIR = DATA_DIR / "analisis"
 ORIGINAL_FILENAME = "original.mp4"
 MANIFEST_FILENAME = "resultado.json"
+# El vídeo tal como llega (subida.mp4, subida.mov…); se normaliza a original.mp4 y se borra
+SUBIDA_FILENAME = "subida"
+# Lo que graban los móviles: MP4 en Android, MOV (H.264 o HEVC) en iPhone
+TIPOS_VIDEO = {"video/mp4": ".mp4", "video/quicktime": ".mov", "video/x-m4v": ".m4v"}
 
 # --- Configuración (variables de entorno; en Docker las fija docker-compose.yml) ---
 
@@ -80,7 +85,12 @@ JWT_SECRET = os.environ.get("JWT_SECRET", "").strip()
 
 # --- Límites ---
 
-MAX_VIDEO_BYTES = 20 * 1024 * 1024
+# Un vídeo de móvil de 10-20 s en 1080p ocupa 30-60 MB; en 4K, más
+MAX_VIDEO_BYTES = 150 * 1024 * 1024
+MAX_DURACION_S = 90
+# Al normalizar: lado mayor y fotogramas por segundo máximos (de sobra para analizar un golpe)
+LADO_MAX_PX = 1280
+FPS_MAX = 60
 MAX_EN_COLA = 10
 ANALISIS_POR_HORA_USUARIO = 30
 ANALISIS_POR_HORA_ANONIMO = 5
@@ -120,6 +130,68 @@ def _actualizar_trabajo(job_id: str, **campos) -> None:
 
 def _carpeta_trabajo(job_id: str) -> Path:
     return ANALISIS_DIR / job_id
+
+
+class VideoNoValido(Exception):
+    """El vídeo no se puede analizar; el mensaje se muestra tal cual al usuario."""
+
+
+def _duracion_video(ruta: Path) -> float:
+    resultado = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", str(ruta)],
+        capture_output=True, text=True, timeout=60, check=False,
+    )
+    try:
+        return float(resultado.stdout.strip())
+    except ValueError as exc:
+        raise VideoNoValido("No se pudo leer el vídeo: el formato no es compatible.") from exc
+
+
+def _normalizar_video(carpeta: Path) -> None:
+    """
+    Convierte el vídeo subido en original.mp4: H.264 (lo reproducen todos los
+    navegadores, también el HEVC de los iPhone), girado según los metadatos del móvil y
+    con el lado mayor y los fotogramas por segundo limitados. Un vídeo 4K a 120 fps no
+    multiplica así el tiempo de análisis, y el reproductor puede mostrar el original.
+    """
+    subida = next(carpeta.glob(f"{SUBIDA_FILENAME}.*"), None)
+    if subida is None:
+        raise VideoNoValido("No se encontró el vídeo subido.")
+    destino = carpeta / ORIGINAL_FILENAME
+
+    if shutil.which("ffmpeg") is None:
+        # Sin ffmpeg (fuera de Docker) solo vale un .mp4, tal cual
+        if subida.suffix.lower() != ".mp4":
+            raise VideoNoValido("Este servidor solo admite vídeos .mp4 (le falta ffmpeg).")
+        subida.replace(destino)
+        return
+
+    duracion = _duracion_video(subida)
+    if duracion > MAX_DURACION_S:
+        raise VideoNoValido(
+            f"El vídeo dura {duracion:.0f} s: recórtalo a {MAX_DURACION_S} s como mucho, "
+            "solo con el golpe."
+        )
+    # Lado mayor como mucho LADO_MAX_PX, en número par (lo exige H.264)
+    lado = f"trunc(min({LADO_MAX_PX}\\,{{}})/2)*2"
+    escala = (
+        f"scale=w=if(gte(iw\\,ih)\\,{lado.format('iw')}\\,-2)"
+        f":h=if(gte(iw\\,ih)\\,-2\\,{lado.format('ih')})"
+    )
+    resultado = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(subida),
+         "-vf", escala, "-fpsmax", str(FPS_MAX),
+         "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+         "-an", "-movflags", "+faststart", str(destino)],
+        capture_output=True, text=True, timeout=600, check=False,
+    )
+    if resultado.returncode != 0 or not destino.exists():
+        logger.warning("ffmpeg no pudo normalizar %s: %s", subida, resultado.stderr.strip()[-500:])
+        raise VideoNoValido(
+            "No se pudo leer el vídeo. Prueba a grabarlo de nuevo o a guardarlo como MP4."
+        )
+    subida.unlink(missing_ok=True)
 
 
 def _json_default(valor: Any) -> Any:
@@ -282,6 +354,7 @@ def _ejecutar_analisis(job_id: str, trabajo: dict) -> None:
         )
 
     try:
+        _normalizar_video(carpeta)
         motor = _motor()
         video_anotado, csv_metricas, feedback = motor.procesar_video(
             carpeta / ORIGINAL_FILENAME,
@@ -314,6 +387,10 @@ def _ejecutar_analisis(job_id: str, trabajo: dict) -> None:
         }
         # Primero a disco: cuando el frontend vea "completado", /resultado ya responde
         _escribir_manifest(carpeta, manifest)
+    except VideoNoValido as exc:
+        shutil.rmtree(carpeta, ignore_errors=True)
+        _actualizar_trabajo(job_id, estado="error", error=str(exc), _terminado_en=time.monotonic())
+        return
     except Exception as exc:
         logger.exception("Falló el análisis %s", job_id)
         shutil.rmtree(carpeta, ignore_errors=True)
@@ -449,9 +526,19 @@ app.add_middleware(
 )
 
 
-def _guardar_video(carpeta: Path, contenido: bytes) -> None:
+def _guardar_video(carpeta: Path, origen: Any, extension: str) -> None:
+    """Copia la subida (ya en un temporal de Starlette) a la carpeta del análisis, por trozos."""
     carpeta.mkdir(parents=True, exist_ok=False)
-    (carpeta / ORIGINAL_FILENAME).write_bytes(contenido)
+    origen.seek(0)
+    with (carpeta / f"{SUBIDA_FILENAME}{extension}").open("wb") as destino:
+        shutil.copyfileobj(origen, destino, length=1024 * 1024)
+
+
+def _tamano_subida(origen: Any) -> int:
+    origen.seek(0, os.SEEK_END)
+    tamano = origen.tell()
+    origen.seek(0)
+    return tamano
 
 
 @app.post("/analizar-video/", status_code=202)
@@ -476,13 +563,24 @@ async def analizar_video(
         lat = "diestro"
 
     nombre = file.filename or "video.mp4"
-    if file.content_type != "video/mp4" and not nombre.lower().endswith(".mp4"):
-        raise HTTPException(status_code=415, detail="Solo se admiten vídeos .mp4.")
-    contenido = await file.read(MAX_VIDEO_BYTES + 1)
-    if not contenido:
+    extension = Path(nombre).suffix.lower()
+    if extension not in TIPOS_VIDEO.values():
+        # Algunos móviles mandan el vídeo de la cámara sin extensión: vale el tipo
+        extension = TIPOS_VIDEO.get(file.content_type or "", "")
+    if not extension:
+        raise HTTPException(
+            status_code=415,
+            detail="Formato no admitido: sube un vídeo MP4 o MOV (vale el de la cámara del móvil).",
+        )
+    # El vídeo ya está en un temporal de Starlette: se mide sin cargarlo en memoria
+    tamano = await asyncio.to_thread(_tamano_subida, file.file)
+    if tamano == 0:
         raise HTTPException(status_code=400, detail="El archivo de vídeo está vacío.")
-    if len(contenido) > MAX_VIDEO_BYTES:
-        raise HTTPException(status_code=413, detail="El vídeo supera el límite de 20 MB.")
+    if tamano > MAX_VIDEO_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"El vídeo supera el límite de {MAX_VIDEO_BYTES // (1024 * 1024)} MB.",
+        )
 
     job_id = uuid.uuid4().hex
     with _lock:
@@ -510,7 +608,7 @@ async def analizar_video(
 
     carpeta = _carpeta_trabajo(job_id)
     try:
-        await asyncio.to_thread(_guardar_video, carpeta, contenido)
+        await asyncio.to_thread(_guardar_video, carpeta, file.file, extension)
     except OSError as exc:
         shutil.rmtree(carpeta, ignore_errors=True)
         _actualizar_trabajo(

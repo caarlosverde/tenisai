@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import type { ChangeEvent, DragEvent, RefObject } from "react";
-import { FileVideo, Info, Loader2, Sparkles, UploadCloud } from "lucide-react";
+import { useRef, type ChangeEvent, type DragEvent, type RefObject } from "react";
+import { Camera, FileVideo, Info, Loader2, Sparkles, UploadCloud } from "lucide-react";
 import GuiaGrabacion from "@/components/home/GuiaGrabacion";
 import { tamanoArchivo } from "@/lib/formato";
+import { ACCEPT_VIDEO, MAX_VIDEO_MB, formatoVideo } from "@/lib/video";
 
 type DropzoneProps = {
   file: File | null;
@@ -39,12 +40,15 @@ export default function Dropzone({
   isLoggedIn,
   mostrarGuia = true,
 }: DropzoneProps) {
+  // En el móvil, capture abre directamente la cámara trasera para grabar el golpe
+  const camaraRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="mx-auto mt-10 w-full max-w-xl">
       <div
         role={file ? undefined : "button"}
         tabIndex={file ? undefined : 0}
-        aria-label={file ? undefined : "Seleccionar un vídeo MP4 para analizar"}
+        aria-label={file ? undefined : "Seleccionar un vídeo para analizar"}
         onClick={file || isAnalyzing ? undefined : onBrowse}
         onKeyDown={(event) => {
           if (!file && !isAnalyzing && (event.key === "Enter" || event.key === " ")) {
@@ -77,7 +81,18 @@ export default function Dropzone({
         <input
           ref={inputRef}
           type="file"
-          accept="video/mp4,.mp4"
+          accept={ACCEPT_VIDEO}
+          className="hidden"
+          onChange={onFileChange}
+          disabled={isAnalyzing}
+          aria-hidden
+          tabIndex={-1}
+        />
+        <input
+          ref={camaraRef}
+          type="file"
+          accept="video/*"
+          capture="environment"
           className="hidden"
           onChange={onFileChange}
           disabled={isAnalyzing}
@@ -91,12 +106,13 @@ export default function Dropzone({
               <UploadCloud className="h-8 w-8" strokeWidth={1.5} aria-hidden />
             </div>
             <p className="font-display text-lg font-medium text-white sm:text-xl">
-              Arrastra tu vídeo aquí
+              <span className="pointer-coarse:hidden">Arrastra tu vídeo aquí</span>
+              <span className="hidden pointer-coarse:inline">Elige un vídeo de tu galería</span>
             </p>
             <p className="mt-2 text-sm text-slate-400">
-              o haz clic para seleccionar un archivo{" "}
-              <span className="text-cyan-300/90">.mp4</span>
-              {" · "}máx. 20 MB
+              <span className="pointer-coarse:hidden">o haz clic para seleccionar un archivo </span>
+              <span className="text-cyan-300/90">MP4 o MOV</span>
+              {" · "}máx. {MAX_VIDEO_MB} MB
             </p>
           </div>
         ) : (
@@ -107,7 +123,9 @@ export default function Dropzone({
               </div>
               <div className="min-w-0 flex-1 text-left">
                 <p className="truncate font-medium text-white">{file.name}</p>
-                <p className="mt-1 text-sm text-slate-400">{tamanoArchivo(file.size)} · MP4</p>
+                <p className="mt-1 text-sm text-slate-400">
+                  {tamanoArchivo(file.size)} · {formatoVideo(file) ?? "Vídeo"}
+                </p>
               </div>
               <button
                 type="button"
@@ -156,6 +174,19 @@ export default function Dropzone({
           </div>
         )}
       </div>
+
+      {!file ? (
+        // Solo en pantallas táctiles: en el ordenador abriría el selector de archivos
+        <button
+          type="button"
+          disabled={isAnalyzing}
+          onClick={() => camaraRef.current?.click()}
+          className="mt-3 hidden w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-4 text-base font-semibold text-cyan-100 transition active:scale-[0.99] pointer-coarse:inline-flex"
+        >
+          <Camera className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+          Grabar el golpe con la cámara
+        </button>
+      ) : null}
 
       {!isLoggedIn ? (
         <p className="mt-4 flex items-start justify-center gap-2 text-center text-sm text-slate-400 animate-[fadeUp_0.85s_ease-out_0.3s_both]">

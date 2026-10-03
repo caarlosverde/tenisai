@@ -127,7 +127,7 @@ export default function Navbar() {
       : `/login?next=${encodeURIComponent(pathname)}`;
 
   return (
-    <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-black/50 backdrop-blur-md">
+    <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-black/50 pt-[env(safe-area-inset-top)] backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 md:px-10">
         <Link
           href="/"
@@ -185,12 +185,8 @@ export default function Navbar() {
                   onClick={() => setMenuOpen((open) => !open)}
                   className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white transition-colors hover:border-cyan-400/30 hover:bg-white/10 sm:px-3"
                 >
-                  <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-cyan-300 to-emerald-300 text-sm font-semibold text-slate-950">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-cyan-300 to-emerald-300 text-sm font-semibold text-slate-950">
                     {inicial}
-                    {avisos > 0 ? (
-                      // En móvil los enlaces van dentro del menú: el punto avisa desde fuera
-                      <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-zinc-900 md:hidden" />
-                    ) : null}
                   </span>
                   <span className="hidden max-w-[8rem] truncate sm:inline">
                     {user.nombre || user.username}

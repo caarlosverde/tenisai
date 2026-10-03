@@ -39,6 +39,23 @@ def main() -> None:
     # Next solo decodifica ICO con PNG en RGBA
     circulo.convert("RGBA").save(app / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
 
+    # Iconos de la app instalable (manifest): normales y "maskable". Android recorta los
+    # maskable con la forma del fabricante (círculo, gota…): el logo va dentro de la zona
+    # segura (el 80 % central) sobre el fondo de la app
+    iconos = RAIZ / "public" / "iconos"
+    iconos.mkdir(exist_ok=True)
+    for lado in (192, 512):
+        circulo.resize((lado, lado), Image.LANCZOS).quantize(256).save(
+            iconos / f"icono-{lado}.png", optimize=True
+        )
+        enmascarable = Image.new("RGB", (lado, lado), FONDO)
+        logo = circulo.resize((int(lado * 0.72),) * 2, Image.LANCZOS)
+        forma = Image.new("L", logo.size, 0)
+        ImageDraw.Draw(forma).ellipse((0, 0, *logo.size), fill=255)
+        margen = (lado - logo.size[0]) // 2
+        enmascarable.paste(logo, (margen, margen), forma)
+        enmascarable.quantize(256).save(iconos / f"icono-maskable-{lado}.png", optimize=True)
+
     # Imagen para compartir enlaces (Open Graph): 1200x630
     og = Image.new("RGB", (1200, 630), FONDO)
     brillo = Image.new("RGB", (1200, 630), FONDO)
@@ -62,7 +79,7 @@ def main() -> None:
     og.save(app / "opengraph-image.jpg", quality=88, optimize=True)
 
     for ruta in [RAIZ / "public" / "logo.webp", app / "icon.png", app / "apple-icon.png",
-                 app / "favicon.ico", app / "opengraph-image.jpg"]:
+                 app / "favicon.ico", app / "opengraph-image.jpg", *sorted(iconos.glob("*.png"))]:
         print(f"{ruta.relative_to(RAIZ)}: {ruta.stat().st_size / 1024:.1f} KB")
 
 

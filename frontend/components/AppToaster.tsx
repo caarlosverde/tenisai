@@ -6,6 +6,9 @@ export default function AppToaster() {
   return (
     <Toaster
       position="top-center"
+      // Debajo de la muesca y la barra de estado cuando la app está instalada
+      offset={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
+      mobileOffset={{ top: "calc(env(safe-area-inset-top) + 12px)" }}
       theme="dark"
       richColors
       closeButton

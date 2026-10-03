@@ -41,6 +41,11 @@ después.
 - **Historial**: evolución por tipo de golpe, detalle de cada análisis, comparación de
   dos análisis (vídeos sincronizados y aspecto por aspecto) y borrado.
 - **Sin cuenta** también se puede analizar; ese análisis se borra a las 24 horas.
+- **App para el móvil** (PWA): se instala desde el navegador con su icono y se abre a
+  pantalla completa; botón para **grabar el golpe con la cámara**, barra de navegación
+  inferior, respeto de la muesca y página propia sin conexión. Admite los vídeos tal como
+  salen del móvil (MP4 de Android o MOV/HEVC de iPhone, hasta 150 MB y 90 s): el motor los
+  normaliza a MP4 H.264 aplicando la rotación del móvil y limitándolos a 1280 px y 60 fps.
 - **Comunidad**:
   - perfil de jugador (ciudad, club, nivel, disponibilidad), privado por defecto;
   - buscador de jugadores, amistades, bloqueo y denuncias;
@@ -81,7 +86,8 @@ flowchart LR
 1. El navegador sube el vídeo a `POST /analizar-video/` con la cookie de sesión. El
    backend identifica al usuario (o la IP si es anónimo), aplica los límites y lo pone
    en la cola.
-2. El hilo de la cola lo procesa en `data/analisis/<id>/` y escribe un `resultado.json`.
+2. El hilo de la cola lo normaliza con ffmpeg (formato, rotación, tamaño y fotogramas por
+   segundo), lo procesa en `data/analisis/<id>/` y escribe un `resultado.json`.
    El navegador consulta `GET /progreso/<id>` mientras tanto.
 3. Al terminar, el frontend guarda en SQLite el análisis con su `jobId`. La página
    `/analisis/<id>` lo vuelve a mostrar pidiendo `GET /resultado/<jobId>`.

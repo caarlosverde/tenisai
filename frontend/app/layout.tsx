@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Manrope, Syne } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import AppToaster from "@/components/AppToaster";
+import BarraInferior from "@/components/BarraInferior";
 import Footer from "@/components/Footer";
+import RegistroServiceWorker from "@/components/RegistroServiceWorker";
 import { SessionProvider } from "@/components/SessionProvider";
 import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
@@ -39,11 +41,20 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
   },
+  // Instalada en el iPhone («Añadir a pantalla de inicio»): pantalla completa con su nombre
+  appleWebApp: {
+    capable: true,
+    title: "TenisAI",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
   themeColor: "#020617",
   colorScheme: "dark",
+  // Ocupa también la zona de la muesca; los márgenes los ponen env(safe-area-inset-*)
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
@@ -66,12 +77,15 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <SessionProvider initialUser={initialUser}>
           <Navbar />
-          <div id="contenido" className="flex-1 pt-16">
+          {/* La barra superior es fija: el contenido empieza debajo (y de la muesca, si hay) */}
+          <div id="contenido" className="flex-1 pt-[calc(4rem+env(safe-area-inset-top))]">
             {children}
           </div>
           <Footer />
+          <BarraInferior />
         </SessionProvider>
         <AppToaster />
+        <RegistroServiceWorker />
       </body>
     </html>
   );
