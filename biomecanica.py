@@ -103,7 +103,6 @@ LAT_ZURDO = "zurdo"
 
 # Umbrales del clasificador (coords normalizadas, Y crece hacia abajo)
 OVERHEAD_MARGEN = 0.015
-MANOS_JUNTAS_MAX = 0.38
 MANOS_JUNTAS_CLARO = 0.30
 MANOS_JUNTAS_SEPARADAS = 0.48
 REVES_MARGEN_X = 0.02

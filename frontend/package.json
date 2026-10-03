@@ -13,8 +13,7 @@
     "demo:comunidad": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/demo-comunidad.mts",
     "organizador": "node scripts/organizador.mts",
     "movil": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/movil.mts",
-    "test:e2e": "playwright test",
-    "postinstall": "prisma skills sync || exit 0"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

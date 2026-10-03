@@ -677,16 +677,6 @@ def es_zapatilla(
     )
 
 
-def dibujar_pelota(
-    frame: np.ndarray,
-    resultados_yolo,
-    tobillos: list[tuple[float, float]] | None = None,
-) -> int:
-    """Dibuja las cajas de pelota de una inferencia YOLO (API de compatibilidad)."""
-    cajas = extraer_cajas_pelota(resultados_yolo, tobillos, frame.shape[1])
-    return dibujar_cajas_pelota(frame, cajas)
-
-
 def ensure_model_downloaded(model_path: Path = MODEL_PATH, url: str = MODEL_URL) -> Path:
     """Descarga el modelo .task de Google si no existe en disco (plug-and-play)."""
     if model_path.is_file():
