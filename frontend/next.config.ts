@@ -25,10 +25,10 @@ const nextConfig: NextConfig = {
     // Tiempo máximo sin actividad en la conexión con el motor (por defecto, 30 s)
     proxyTimeout: 120_000,
   },
-  // En desarrollo, la app de Android abre la web del ordenador por la red local: desde el
-  // emulador (10.0.2.2) o desde un móvil de la misma wifi (192.168.x.x). Sin esto, Next
-  // bloquea los recursos de desarrollo que pide otro host
-  allowedDevOrigins: ["10.0.2.2", "192.168.*.*"],
+  // En desarrollo, la web también se puede abrir desde un móvil de la misma wifi
+  // (http://192.168.x.x:3000). Sin esto, Next bloquea los recursos de desarrollo que pide
+  // otro host
+  allowedDevOrigins: ["192.168.*.*"],
   turbopack: {
     // La raíz del repositorio tiene otro package-lock.json (no es un monorepo):
     // la aplicación vive en esta carpeta

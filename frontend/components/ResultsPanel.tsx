@@ -354,7 +354,7 @@ export default function ResultsPanel({
         usuario: usuarioInforme,
         tipoGolpe,
       });
-      await guardarArchivo(pdf, NOMBRE_INFORME_PDF);
+      guardarArchivo(pdf, NOMBRE_INFORME_PDF);
       toast.success("Informe PDF generado");
     } catch (err) {
       console.error("No se pudo generar el informe PDF", err);
@@ -368,7 +368,7 @@ export default function ResultsPanel({
     try {
       const response = await fetch(csvUrl);
       if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
-      await guardarArchivo(await response.blob(), "metricas-golpe.csv");
+      guardarArchivo(await response.blob(), "metricas-golpe.csv");
     } catch (err) {
       console.error("No se pudo descargar el CSV", err);
       toast.error("No se pudieron descargar las métricas.");

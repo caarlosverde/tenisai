@@ -41,8 +41,7 @@ después.
 - **Historial**: evolución por tipo de golpe, detalle de cada análisis, comparación de
   dos análisis (vídeos sincronizados y aspecto por aspecto) y borrado.
 - **Sin cuenta** también se puede analizar; ese análisis se borra a las 24 horas.
-- **App de Android** (Capacitor, lista para Google Play) y **app instalable** (PWA) desde el
-  navegador, con su icono y a pantalla completa; botón para **grabar el golpe con la cámara**, barra de navegación
+- **App instalable** (PWA) desde el navegador del móvil, con su icono y a pantalla completa; botón para **grabar el golpe con la cámara**, barra de navegación
   inferior, respeto de la muesca y página propia sin conexión. Admite los vídeos tal como
   salen del móvil (MP4 de Android o MOV/HEVC de iPhone, hasta 150 MB y 90 s): el motor los
   normaliza a MP4 H.264 aplicando la rotación del móvil y limitándolos a 1280 px y 60 fps.
@@ -64,7 +63,7 @@ después.
 
 ```mermaid
 flowchart LR
-    N["Navegador o<br/>app de Android"] -- "páginas y /api/*" --> F["Frontend · Next.js 16<br/>(localhost:3000)"]
+    N["Navegador<br/>(ordenador o móvil)"] -- "páginas y /api/*" --> F["Frontend · Next.js 16<br/>(localhost:3000)"]
     F -- Prisma --> DB[("SQLite<br/>usuarios e historial")]
     N -- "/motor/*: vídeo, progreso,<br/>resultados (con la cookie)" --> F
     F -- "reenvía /motor/*" --> B["Backend · FastAPI<br/>(localhost:8001, Docker)"]
@@ -187,51 +186,14 @@ docker compose -f docker-compose.prod.yml up -d --build
 - Antes de abrirlo al público: rellenar `frontend/lib/legal.ts` y revisar la licencia de
   YOLOv8 (ver [Limitaciones](#limitaciones-conocidas)).
 
-## App de Android
+## Desde el móvil
 
-`frontend/android/` es la app de Android, hecha con [Capacitor](https://capacitorjs.com):
-la web dentro de un WebView, así que cada mejora de la web llega a la app sin publicar
-una versión nueva. Lo que aporta la app:
+La web está pensada también para el móvil: se puede instalar como app (PWA) desde el
+menú del navegador («Añadir a pantalla de inicio») y grabar el golpe con la cámara.
 
-- icono, pantalla de arranque y barra de estado con los colores de TenisAI;
-- «Grabar el golpe» abre la cámara del móvil (sin pedir permiso de cámara: graba la app
-  de cámara del sistema y devuelve el vídeo);
-- el informe PDF y el CSV se comparten con el menú de Android (Drive, Archivos, WhatsApp…),
-  porque un WebView no descarga archivos;
-- botón Atrás: vuelve a la página anterior y, en la primera, deja la app en segundo plano;
-- página propia sin conexión con «Reintentar»; un 404 de la web se sigue viendo como tal.
-
-Requisitos para compilarla: [Android Studio](https://developer.android.com/studio) (trae
-el SDK de Android y el JDK que necesita Gradle).
-
-```bash
-cd frontend
-npm run movil -- emulador            # la web de este ordenador, vista desde el emulador
-npm run movil -- wifi                # o desde un móvil conectado a la misma wifi
-npm run movil -- https://midominio   # la web publicada (lo que se sube a Google Play)
-npm run movil -- emulador --abrir    # además abre el proyecto en Android Studio
-```
-
-En desarrollo la web debe estar en marcha (`npm run dev`). Para el móvil por wifi, el
-cortafuegos de Windows tiene que permitir conexiones entrantes al puerto 3000 en redes
-privadas (Windows lo pregunta la primera vez que Node escucha en la red).
-
-**Publicar en Google Play**
-
-1. Cuenta de desarrollador de Google Play (pago único de 25 $ y verificación de
-   identidad). Las cuentas personales nuevas deben hacer antes una prueba cerrada con al
-   menos 12 testers durante 14 días.
-2. La web publicada con HTTPS ([Producción](#producción)) y `npm run movil -- https://…`.
-3. En Android Studio, *Build → Generate Signed App Bundle* crea el `.aab` firmado. La clave
-   de firma (`.jks`) no se sube nunca al repositorio (`android/.gitignore`): guárdala con su
-   contraseña en un lugar seguro, sin ella no se pueden publicar actualizaciones.
-4. Ficha de la tienda: icono y gráfico destacado en `frontend/movil/play/` (los genera
-   `scripts/generar_imagenes.py`), capturas del móvil, URL de la política de privacidad
-   (`/privacidad`) y el formulario de seguridad de los datos.
-
-Antes de la primera publicación se puede cambiar el identificador `com.tenisai.app`
-(`capacitor.config.ts` y `android/app/build.gradle`); después ya no. Cada versión nueva de
-la app necesita subir `versionCode` en `android/app/build.gradle`.
+En desarrollo, con `npm run dev` en marcha, se abre desde un móvil de la misma wifi en
+`http://<IP del ordenador>:3000`. El cortafuegos de Windows tiene que permitir conexiones
+entrantes al puerto 3000 (Windows lo pregunta la primera vez que Node escucha en la red).
 
 ## Tests
 
@@ -340,9 +302,7 @@ frontend/
   prisma/            Esquema y migraciones de la base de datos
   e2e/               Tests de Playwright
   lib/comunidad/     Puntos Elo, marcador, amistades, partidos y ranking (con sus tests)
-  scripts/           Iconos e imágenes; datos de ejemplo; preparar la app de Android
-  android/           App de Android (Capacitor)
-  movil/             Páginas locales de la app y gráficos de Google Play
+  scripts/           Iconos e imágenes; datos de ejemplo; organizadores
   Dockerfile         Imagen de la web para producción
 docker-compose.prod.yml, Caddyfile   Producción con HTTPS
 docs/capturas/       Capturas del README

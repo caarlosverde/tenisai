@@ -1,7 +1,6 @@
 """
 Genera los iconos, el logo optimizado y la imagen para compartir enlaces a partir
-del logo original (assets/logo-original.jpg, 1024x1024). También los iconos de la app de
-Android (si existe android/) y los gráficos de su ficha en Google Play (movil/play/).
+del logo original (assets/logo-original.jpg, 1024x1024).
 
 Uso (desde frontend/):  ../venv/Scripts/python scripts/generar_imagenes.py
 """
@@ -81,78 +80,8 @@ def main() -> None:
 
     generadas = [RAIZ / "public" / "logo.webp", app / "icon.png", app / "apple-icon.png",
                  app / "favicon.ico", app / "opengraph-image.jpg", *sorted(iconos.glob("*.png"))]
-    generadas += iconos_android(circulo)
-    generadas += graficos_google_play(circulo)
     for ruta in generadas:
         print(f"{ruta.relative_to(RAIZ)}: {ruta.stat().st_size / 1024:.1f} KB")
-
-
-# Densidades de pantalla de Android y su escala respecto a mdpi (1 dp = 1 px)
-DENSIDADES = {"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4}
-
-
-def en_circulo(imagen: Image.Image, lado: int) -> Image.Image:
-    """El logo redondo, de `lado` px, sobre fondo transparente."""
-    logo = imagen.resize((lado, lado), Image.LANCZOS).convert("RGBA")
-    forma = Image.new("L", (lado, lado), 0)
-    ImageDraw.Draw(forma).ellipse((0, 0, lado - 1, lado - 1), fill=255)
-    logo.putalpha(forma)
-    return logo
-
-
-def iconos_android(circulo: Image.Image) -> list[Path]:
-    """Iconos de la app de Android (android/, generado por Capacitor)."""
-    res = RAIZ / "android" / "app" / "src" / "main" / "res"
-    if not res.exists():
-        return []
-    rutas = []
-    for densidad, escala in DENSIDADES.items():
-        carpeta = res / f"mipmap-{densidad}"
-        # Icono clásico (48 dp), para lanzadores sin iconos adaptables: el logo redondo
-        lado = round(48 * escala)
-        for nombre in ("ic_launcher.png", "ic_launcher_round.png"):
-            en_circulo(circulo, lado).save(carpeta / nombre, optimize=True)
-            rutas.append(carpeta / nombre)
-        # Capa delantera del icono adaptable (108 dp). Cada fabricante lo recorta con su forma
-        # (círculo, gota, cuadrado redondeado) dejando visibles los 72 dp centrales: el logo
-        # ocupa 66 dp, la zona que ninguna forma recorta. El fondo es el color de la app
-        lienzo = round(108 * escala)
-        delantera = Image.new("RGBA", (lienzo, lienzo), (0, 0, 0, 0))
-        logo = en_circulo(circulo, round(66 * escala))
-        margen = (lienzo - logo.size[0]) // 2
-        delantera.alpha_composite(logo, (margen, margen))
-        delantera.save(carpeta / "ic_launcher_foreground.png", optimize=True)
-        rutas.append(carpeta / "ic_launcher_foreground.png")
-    return rutas
-
-
-def graficos_google_play(circulo: Image.Image) -> list[Path]:
-    """Icono (512x512) y gráfico destacado (1024x500) de la ficha de Google Play."""
-    carpeta = RAIZ / "movil" / "play"
-    carpeta.mkdir(parents=True, exist_ok=True)
-
-    # Google Play redondea las esquinas: se entrega cuadrado, sin transparencias
-    icono = Image.new("RGB", (512, 512), FONDO)
-    logo = en_circulo(circulo, 420)
-    icono.paste(logo, (46, 46), logo)
-    icono.save(carpeta / "icono-512.png", optimize=True)
-
-    grafico = Image.new("RGB", (1024, 500), FONDO)
-    brillo = Image.new("RGB", (1024, 500), FONDO)
-    ImageDraw.Draw(brillo).ellipse((-150, -220, 640, 560), fill=(11, 45, 70))
-    grafico = Image.blend(grafico, brillo.filter(ImageFilter.GaussianBlur(110)), 0.9)
-    logo = en_circulo(circulo, 300)
-    grafico.paste(logo, (80, 100), logo)
-    dibujo = ImageDraw.Draw(grafico)
-    titulo = fuente(["segoeuib.ttf", "arialbd.ttf"], 84)
-    texto = fuente(["segoeui.ttf", "arial.ttf"], 34)
-    dibujo.text((440, 140), "Tenis", font=titulo, fill=(248, 250, 252))
-    dibujo.text((440 + dibujo.textlength("Tenis", font=titulo), 140), "AI", font=titulo,
-                fill=(103, 232, 249))
-    for i, linea in enumerate(["Análisis biomecánico de tu", "golpe con visión artificial"]):
-        dibujo.text((444, 262 + i * 46), linea, font=texto, fill=(203, 213, 225))
-    grafico.save(carpeta / "grafico-destacado.png", optimize=True)
-    return [carpeta / "icono-512.png", carpeta / "grafico-destacado.png"]
 
 
 if __name__ == "__main__":

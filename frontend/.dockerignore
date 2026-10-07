@@ -10,9 +10,7 @@ prisma/*.db-journal
 .env.local
 .env.*.local
 
-# Pruebas y app de Android: no forman parte de la web
+# Pruebas: no forman parte de la web
 e2e
 test-results
 playwright-report
-android
-movil

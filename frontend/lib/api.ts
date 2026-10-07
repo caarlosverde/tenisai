@@ -1,7 +1,7 @@
 // Motor de análisis (FastAPI). El navegador lo llama a través de la propia web, en
-// /motor/..., y Next lo reenvía (next.config.ts): un solo origen que funciona igual en el
-// navegador, en la app de Android y en producción, y con el que la cookie de sesión llega
-// sin necesidad de CORS. NEXT_PUBLIC_API_URL permite apuntar a otra dirección.
+// /motor/..., y Next lo reenvía (next.config.ts): un solo origen que funciona igual en
+// desarrollo y en producción, y con el que la cookie de sesión llega sin necesidad de
+// CORS. NEXT_PUBLIC_API_URL permite apuntar a otra dirección.
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/motor";
 
 /** Dirección del motor desde el servidor de Next (reenvío de /motor y llamadas internas). */
