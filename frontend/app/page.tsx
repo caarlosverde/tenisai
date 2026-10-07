@@ -102,10 +102,9 @@ export default function HomePage() {
   const [tipoGolpe, setTipoGolpe] = useState<string | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [processedUrl, setProcessedUrl] = useState<string | null>(null);
-  const [csvUrl, setCsvUrl] = useState<string | null>(null);
   const [tracksUrl, setTracksUrl] = useState<string | null>(null);
 
-  const hasResults = Boolean(originalUrl && processedUrl && csvUrl);
+  const hasResults = Boolean(originalUrl && processedUrl);
 
   const acceptFile = useCallback((next: File | null) => {
     if (!next) return;
@@ -159,7 +158,6 @@ export default function HomePage() {
     setFile(null);
     setOriginalUrl(null);
     setProcessedUrl(null);
-    setCsvUrl(null);
     setTracksUrl(null);
     setIsAnalyzing(false);
     setProgress(null);
@@ -240,14 +238,13 @@ export default function HomePage() {
 
       const data = await esperarResultado(jobId, setProgress);
 
-      if (!data.original_url || !data.processed_url || !data.csv_url) {
+      if (!data.original_url || !data.processed_url) {
         throw new Error("La API no devolvió las URLs esperadas.");
       }
 
       // Cada análisis tiene su propia carpeta en el backend: las URLs son únicas
       setOriginalUrl(data.original_url);
       setProcessedUrl(data.processed_url);
-      setCsvUrl(data.csv_url);
       setTracksUrl(data.tracks_url ?? null);
       setFeedback(data.feedback ?? []);
       setResumenGeneral(data.resumen_general ?? null);
@@ -343,11 +340,10 @@ export default function HomePage() {
           <Hero compact={hasResults} analyzing={isAnalyzing && !hasResults} />
         ) : null}
 
-        {hasResults && originalUrl && processedUrl && csvUrl ? (
+        {hasResults && originalUrl && processedUrl ? (
           <ResultsPanel
             originalUrl={originalUrl}
             processedUrl={processedUrl}
-            csvUrl={csvUrl}
             tracksUrl={tracksUrl}
             feedback={feedback}
             resumenGeneral={resumenGeneral}

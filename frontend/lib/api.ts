@@ -64,7 +64,6 @@ export type AnalysisProgress = {
   error?: string;
   original_url?: string;
   processed_url?: string;
-  csv_url?: string;
   tracks_url?: string;
   feedback?: FeedbackEvent[];
   resumen_general?: ResumenGeneral | null;

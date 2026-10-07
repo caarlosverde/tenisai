@@ -19,20 +19,9 @@ import {
   Loader2,
   PlayCircle,
 } from "lucide-react";
-import Papa from "papaparse";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { flushSync } from "react-dom";
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import AnalysisPlayer, {
   type AnalysisPlayerHandle,
   type CoachHit,
@@ -53,13 +42,6 @@ import {
 } from "@/lib/consejos";
 import { guardarArchivo } from "@/lib/descargas";
 import { NOMBRE_INFORME_PDF, generarInformePdf } from "@/lib/informePdf";
-
-type ChartRow = {
-  Timestamp_ms: number;
-  Angulo_Codo: number;
-  Angulo_Rodilla_Der?: number;
-  Angulo_Rodilla_Izq?: number;
-};
 
 type Pestana = "video" | "fallos";
 
@@ -231,12 +213,11 @@ function TarjetaFallo({
 type ResultsPanelProps = {
   originalUrl: string;
   processedUrl: string;
-  csvUrl: string;
   tracksUrl: string | null;
   feedback: FeedbackEvent[];
   resumenGeneral: ResumenGeneral | null;
   tipoGolpe: string | null;
-  /** Botones que se muestran al final, junto a "Descargar métricas CSV". */
+  /** Botones que se muestran al final del panel. */
   actions?: ReactNode;
   className?: string;
   /** La página de un análisis guardado ya muestra la nota en su cabecera. */
@@ -246,7 +227,6 @@ type ResultsPanelProps = {
 export default function ResultsPanel({
   originalUrl,
   processedUrl,
-  csvUrl,
   tracksUrl,
   feedback,
   resumenGeneral,
@@ -257,7 +237,6 @@ export default function ResultsPanel({
 }: ResultsPanelProps) {
   const { user } = useSession();
   const isLoggedIn = Boolean(user);
-  const [chartData, setChartData] = useState<ChartRow[]>([]);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [usuarioInforme, setUsuarioInforme] = useState<string | null>(null);
   const [pestana, setPestana] = useState<Pestana>("video");
@@ -363,54 +342,6 @@ export default function ResultsPanel({
       setGeneratingPdf(false);
     }
   }, [feedback, generatingPdf, resumenGeneral, tipoGolpe, usuarioInforme]);
-
-  const descargarCsv = useCallback(async () => {
-    try {
-      const response = await fetch(csvUrl);
-      if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
-      guardarArchivo(await response.blob(), "metricas-golpe.csv");
-    } catch (err) {
-      console.error("No se pudo descargar el CSV", err);
-      toast.error("No se pudieron descargar las métricas.");
-    }
-  }, [csvUrl]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadCsv() {
-      try {
-        const response = await fetch(csvUrl);
-        if (!response.ok) {
-          throw new Error(`Error HTTP ${response.status}`);
-        }
-        const texto = await response.text();
-        const parsed = Papa.parse<ChartRow>(texto, {
-          header: true,
-          dynamicTyping: true,
-          skipEmptyLines: true,
-        });
-
-        if (!cancelled) {
-          const rows = (parsed.data ?? []).filter(
-            (row) =>
-              typeof row.Timestamp_ms === "number" &&
-              typeof row.Angulo_Codo === "number",
-          );
-          setChartData(rows);
-        }
-      } catch {
-        if (!cancelled) {
-          setChartData([]);
-        }
-      }
-    }
-
-    void loadCsv();
-    return () => {
-      cancelled = true;
-    };
-  }, [csvUrl]);
 
   const pestanas: { id: Pestana; texto: string; Icono: typeof Clapperboard; extra?: string }[] = [
     { id: "video", texto: "Cámara lenta", Icono: Clapperboard },
@@ -596,109 +527,11 @@ export default function ResultsPanel({
         </section>
       ) : null}
 
-      {/* Gráfica biomecánica full-width */}
-      <section className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-4 shadow-xl backdrop-blur-md sm:p-6">
-        <h2 className="mb-4 font-display text-sm font-medium uppercase tracking-[0.2em] text-cyan-300/90">
-          Evolución Biomecánica: Codo y Rodillas
-        </h2>
-        <div className="h-[340px] w-full">
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={chartData}
-                margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
-              >
-                <CartesianGrid stroke="rgba(148,163,184,0.2)" strokeDasharray="4 4" />
-                <XAxis
-                  dataKey="Timestamp_ms"
-                  stroke="#94a3b8"
-                  tick={{ fill: "#94a3b8", fontSize: 12 }}
-                  tickLine={false}
-                  axisLine={{ stroke: "rgba(148,163,184,0.35)" }}
-                  label={{
-                    value: "Timestamp (ms)",
-                    position: "insideBottom",
-                    offset: -2,
-                    fill: "#64748b",
-                    fontSize: 12,
-                  }}
-                />
-                <YAxis
-                  stroke="#94a3b8"
-                  tick={{ fill: "#94a3b8", fontSize: 12 }}
-                  tickLine={false}
-                  axisLine={{ stroke: "rgba(148,163,184,0.35)" }}
-                  label={{
-                    value: "Ángulo (°)",
-                    angle: -90,
-                    position: "insideLeft",
-                    fill: "#64748b",
-                    fontSize: 12,
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "rgba(2,6,23,0.92)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    borderRadius: 12,
-                    color: "#e2e8f0",
-                  }}
-                  labelFormatter={(value) => `t = ${value} ms`}
-                  formatter={(value, name) => [`${value}°`, String(name)]}
-                />
-                <Legend
-                  verticalAlign="top"
-                  height={28}
-                  iconType="plainline"
-                  wrapperStyle={{ fontSize: 12, color: "#cbd5e1" }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Angulo_Codo"
-                  name="Codo derecho"
-                  stroke="#22d3ee"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4, fill: "#67e8f9" }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Angulo_Rodilla_Der"
-                  name="Rodilla derecha"
-                  stroke="#ff2fd0"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4, fill: "#ff8beb" }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Angulo_Rodilla_Izq"
-                  name="Rodilla izquierda"
-                  stroke="#ccff00"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4, fill: "#e4ff66" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-slate-400">
-              Cargando métricas del golpe...
-            </div>
-          )}
+      {actions ? (
+        <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          {actions}
         </div>
-      </section>
-
-      <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-        <button
-          type="button"
-          onClick={() => void descargarCsv()}
-          className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300 shadow-lg transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:text-white"
-        >
-          Descargar métricas CSV
-        </button>
-        {actions}
-      </div>
+      ) : null}
     </motion.div>
   );
 }

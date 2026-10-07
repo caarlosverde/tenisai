@@ -227,7 +227,6 @@ def _respuesta_resultado(job_id: str, manifest: dict) -> dict:
         "creado": manifest.get("creado"),
         "original_url": f"{base}/{archivos.get('original', ORIGINAL_FILENAME)}",
         "processed_url": f"{base}/{archivos['procesado']}",
-        "csv_url": f"{base}/{archivos['metricas']}",
         "tracks_url": f"{base}/{archivos['tracks']}",
         "feedback": manifest.get("feedback", []),
         "resumen_general": manifest.get("resumen_general"),

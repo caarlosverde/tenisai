@@ -33,7 +33,7 @@ después.
   jugador y con la zona marcada, ordenado por prioridad, con explicación, ejercicios y
   salto a ese momento en cámara lenta.
 - **Plan de mejora**: qué corregir primero, ejercicios y lo que ya se hace bien;
-  gráfica de ángulos, informe PDF y CSV.
+  informe PDF descargable.
 - **Cola de análisis**: los vídeos se procesan de uno en uno y la web muestra cuántos
   hay por delante.
 - **Cuentas**: registro con consentimiento, inicio de sesión, edición del perfil,

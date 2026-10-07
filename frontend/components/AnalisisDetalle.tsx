@@ -159,7 +159,7 @@ export default function AnalisisDetalle({ analisis }: { analisis: AnalisisGuarda
         const datos = (await response.json()) as AnalysisProgress;
         if (cancelled) return;
         setEstado(
-          datos.original_url && datos.processed_url && datos.csv_url
+          datos.original_url && datos.processed_url
             ? { tipo: "listo", datos }
             : { tipo: "sin_archivos" },
         );
@@ -261,12 +261,11 @@ export default function AnalisisDetalle({ analisis }: { analisis: AnalisisGuarda
           </div>
         ) : null}
 
-        {datos && datos.original_url && datos.processed_url && datos.csv_url ? (
+        {datos && datos.original_url && datos.processed_url ? (
           <ResultsPanel
             className="mt-8"
             originalUrl={datos.original_url}
             processedUrl={datos.processed_url}
-            csvUrl={datos.csv_url}
             tracksUrl={datos.tracks_url ?? null}
             feedback={datos.feedback ?? []}
             resumenGeneral={datos.resumen_general ?? null}
