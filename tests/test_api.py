@@ -27,7 +27,12 @@ VIDEO_FALSO = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 1024
 puerta = threading.Event()
 
 
-def motor_falso(input_path: Path, *, output_dir: Path, on_progress, **_estilo):
+# Opciones con las que se llamó al motor en cada análisis (estilos, tipo de golpe...)
+llamadas_motor: list[dict] = []
+
+
+def motor_falso(input_path: Path, *, output_dir: Path, on_progress, **opciones):
+    llamadas_motor.append(opciones)
     on_progress(1, 2)
     puerta.wait(timeout=10)
     video = output_dir / "resultado_angulos.mp4"
@@ -127,6 +132,25 @@ def test_analisis_anonimo_completo(cliente):
     )
     manifest = json.loads((api.ANALISIS_DIR / job_id / "resultado.json").read_text(encoding="utf-8"))
     assert manifest["usuario_id"] is None
+
+
+@pytest.mark.parametrize(
+    ("enviado", "esperado"),
+    [(None, "auto"), ("reves", "reves"), ("  SAQUE ", "saque"), ("smash", "auto")],
+)
+def test_el_tipo_de_golpe_elegido_llega_al_motor(cliente, enviado, esperado):
+    llamadas_motor.clear()
+    datos = {"tipo_golpe": enviado} if enviado is not None else None
+    cliente.cookies.clear()
+    respuesta = cliente.post(
+        "/analizar-video", files={"file": ("golpe.mp4", VIDEO_FALSO, "video/mp4")}, data=datos
+    )
+    job_id = respuesta.json()["job_id"]
+    esperar(cliente, job_id)
+
+    assert llamadas_motor[-1]["tipo_golpe"] == esperado
+    manifest = json.loads((api.ANALISIS_DIR / job_id / "resultado.json").read_text(encoding="utf-8"))
+    assert manifest["tipo_golpe_elegido"] == esperado
 
 
 def test_la_subida_acepta_la_ruta_con_barra_final(cliente):

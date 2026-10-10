@@ -167,6 +167,12 @@ def test_resumen_todo_optimo_garantiza_nota_alta():
     assert resumen["tipo"] == "optimo"
 
 
+def test_resumen_con_nota_alta_tambien_nombra_lo_que_falla():
+    resumen = bio._resumen_general([_ev("optimo", "Base de apoyo"), _ev("mejora", "Flexión de piernas")])
+    assert resumen["tipo"] == "optimo"  # 92: nota alta
+    assert "pulir flexión de piernas" in resumen["mensaje"]
+
+
 def test_resumen_nunca_baja_de_cero():
     resumen = bio._resumen_general([_ev("alerta", f"Fallo {i}") for i in range(10)])
     assert resumen["puntuacion"] == 0
@@ -273,3 +279,208 @@ def test_generar_feedback_sin_csv(tmp_path):
     resultado = bio.generar_feedback(tmp_path / "no_existe.csv")
     assert resultado["evaluaciones"] == []
     assert resultado["resumen_general"] is None
+
+
+# --------------------------------------------------------------------------
+# Cada golpe con su tipo
+# --------------------------------------------------------------------------
+
+
+def _fases_con_tipos(tipos: list[str]) -> list[dict]:
+    """Fases de los tres golpes del CSV sintético, ya clasificados (como hace main.py)."""
+    fases = bio.construir_golpes_fases(list(GOLPES_S))
+    for fase in fases:
+        fase["tipo_golpe"] = tipos[GOLPES_S.index(fase["t_impacto"])]
+    return fases
+
+
+def test_cada_tipo_de_golpe_se_evalua_solo_con_sus_golpes(tmp_path):
+    ruta = _escribir_csv(tmp_path / "m.csv")
+    fases = _fases_con_tipos([bio.TIPO_DERECHA, bio.TIPO_DERECHA, bio.TIPO_REVES_2])
+
+    resultado = bio.generar_feedback(ruta, golpes_fases=fases)
+
+    assert resultado["tipo_golpe"] == bio.TIPO_DERECHA  # el más repetido
+    assert [g["tipo_golpe"] for g in resultado["golpes"]] == [
+        bio.TIPO_DERECHA,
+        bio.TIPO_DERECHA,
+        bio.TIPO_REVES_2,
+    ]
+    derecha = [ev for ev in resultado["evaluaciones"] if ev["tipo_golpe"] == bio.TIPO_DERECHA]
+    reves = [ev for ev in resultado["evaluaciones"] if ev["tipo_golpe"] == bio.TIPO_REVES_2]
+    # Las rodillas de las derechas solo miran sus dos golpes, no el revés
+    rodilla = next(ev for ev in derecha if ev["categoria"] == "rodilla")
+    assert len(rodilla["timestamps"]) == 2
+    # En el revés a dos manos no se evalúa el codo
+    assert any(ev["categoria"] == "codo" for ev in derecha)
+    assert not any(ev["categoria"] == "codo" for ev in reves)
+    # Los títulos dicen a qué golpe se refieren (el carrusel los distingue por título)
+    assert all(ev["titulo"].endswith(f"· {ev['tipo_golpe']}") for ev in resultado["evaluaciones"])
+    assert "2 derechas y 1 revés a dos manos" in resultado["resumen_general"]["mensaje"]
+
+
+def test_con_un_solo_tipo_los_titulos_no_cambian(tmp_path):
+    ruta = _escribir_csv(tmp_path / "m.csv")
+    fases = _fases_con_tipos([bio.TIPO_DERECHA] * 3)
+
+    resultado = bio.generar_feedback(ruta, golpes_fases=fases)
+
+    assert all("·" not in ev["titulo"] for ev in resultado["evaluaciones"])
+    assert len(_evaluacion(resultado, "rodilla")["timestamps"]) == 3
+
+
+def test_tipo_elegido_por_el_jugador():
+    assert bio.tipo_elegido("auto") is None
+    assert bio.tipo_elegido(None) is None
+    assert bio.tipo_elegido("derecha") == bio.TIPO_DERECHA
+    # El revés toma las manos del perfil del jugador
+    assert bio.tipo_elegido("reves", "1_mano") == bio.TIPO_REVES_1
+    assert bio.tipo_elegido("reves", "2_manos") == bio.TIPO_REVES_2
+
+
+def test_el_tipo_elegido_se_aplica_a_todos_los_golpes(tmp_path):
+    ruta = _escribir_csv(tmp_path / "m.csv")
+    # Aunque las fases ya traigan tipos distintos (clasificación automática)
+    fases = _fases_con_tipos([bio.TIPO_DERECHA, bio.TIPO_VOLEA, bio.TIPO_REVES_2])
+
+    resultado = bio.generar_feedback(ruta, golpes_fases=fases, tipo_forzado=bio.TIPO_SAQUE, frames=[{"t": 0}])
+
+    assert resultado["tipo_golpe"] == bio.TIPO_SAQUE
+    assert {g["tipo_golpe"] for g in resultado["golpes"]} == {bio.TIPO_SAQUE}
+    assert all(f["tipo_golpe"] == bio.TIPO_SAQUE for f in fases)
+
+
+def test_tipo_principal_en_empate_elige_el_primero():
+    assert bio.tipo_principal([]) == bio.TIPO_DERECHA
+    assert (
+        bio.tipo_principal([(1.0, bio.TIPO_REVES_2), (2.0, bio.TIPO_DERECHA)])
+        == bio.TIPO_REVES_2
+    )
+
+
+def test_etiqueta_de_varios_golpes():
+    assert bio._etiqueta_golpes({bio.TIPO_DERECHA: 1}) == "1 derecha"
+    assert (
+        bio._etiqueta_golpes({bio.TIPO_DERECHA: 2, bio.TIPO_SAQUE: 1, bio.TIPO_VOLEA: 3})
+        == "2 derechas, 1 saque y 3 voleas"
+    )
+
+
+def test_en_fase_no_usa_otros_momentos_si_el_golpe_no_tiene_datos():
+    fases = bio.construir_golpes_fases([5.0])
+    serie = [(0, 120.0), (1000, 125.0)]  # ningún dato cerca del golpe de t = 5 s
+    assert bio._en_fase(serie, fases, "carga") == []
+    # Sin golpes detectados sí se evalúa el clip entero
+    assert bio._en_fase(serie, [], "carga") == serie
+
+
+def test_el_resumen_avisa_de_lo_que_no_se_pudo_medir(tmp_path):
+    ruta = _escribir_csv(tmp_path / "m.csv")
+    # Piernas fuera de plano: main.py deja vacías las celdas poco visibles
+    with open(ruta, encoding="utf-8") as archivo:
+        filas = list(csv.DictReader(archivo))
+    with open(ruta, "w", newline="", encoding="utf-8") as archivo:
+        escritor = csv.DictWriter(archivo, fieldnames=COLUMNAS)
+        escritor.writeheader()
+        for fila in filas:
+            fila.update({bio.COL_ROD_DER: "", bio.COL_ROD_IZQ: "", bio.COL_BASE: ""})
+            escritor.writerow(fila)
+
+    resultado = bio.generar_feedback(ruta, golpes_fases=_fases_con_tipos([bio.TIPO_DERECHA] * 3))
+
+    resumen = resultado["resumen_general"]
+    assert resumen["sin_datos"] == ["rodilla", "base"]
+    assert "No se ha podido valorar la flexión de piernas y la base de apoyo" in resumen["mensaje"]
+    assert not any(ev["categoria"] in ("rodilla", "base") for ev in resultado["evaluaciones"])
+
+
+# --------------------------------------------------------------------------
+# Orientación de la cámara
+# --------------------------------------------------------------------------
+
+
+def _frame(t: float, *, de_frente: bool, muneca_der_x: float, muneca_izq_x: float, fase="recuperacion"):
+    """Esqueleto mínimo; de frente, el lado derecho del jugador sale a la izquierda."""
+    signo = -1 if de_frente else 1
+    vis = 0.99
+    return {
+        "t": t,
+        "fase": fase,
+        "landmarks": {
+            "nariz": [0.5, 0.3, vis],
+            "hombro_der": [0.5 + 0.05 * signo, 0.4, vis],
+            "hombro_izq": [0.5 - 0.05 * signo, 0.4, vis],
+            "cadera_der": [0.5 + 0.04 * signo, 0.6, vis],
+            "cadera_izq": [0.5 - 0.04 * signo, 0.6, vis],
+            "codo_der": [muneca_der_x, 0.5, vis],
+            "codo_izq": [muneca_izq_x, 0.5, vis],
+            "muneca_der": [muneca_der_x, 0.55, vis],
+            "muneca_izq": [muneca_izq_x, 0.55, vis],
+        },
+    }
+
+
+@pytest.mark.parametrize(("de_frente", "esperado"), [(False, 1), (True, -1)])
+def test_orientacion_de_la_camara(de_frente, esperado):
+    frames = [_frame(i / 30, de_frente=de_frente, muneca_der_x=0.6, muneca_izq_x=0.4) for i in range(10)]
+    assert bio.orientacion_camara(frames) == esperado
+
+
+def test_orientacion_dudosa_de_perfil():
+    # De perfil los hombros se solapan en la imagen
+    frames = [_frame(i / 30, de_frente=False, muneca_der_x=0.6, muneca_izq_x=0.4) for i in range(10)]
+    for frame in frames:
+        for nombre in ("hombro_der", "hombro_izq", "cadera_der", "cadera_izq"):
+            frame["landmarks"][nombre][0] = 0.5
+    assert bio.orientacion_camara(frames) == 0
+
+
+@pytest.mark.parametrize("de_frente", [False, True])
+def test_una_derecha_se_reconoce_desde_delante_y_desde_detras(de_frente):
+    # Armado con la muñeca derecha en el lado derecho del jugador; en el impacto
+    # (pico de velocidad, ya cruzando) queda en el centro
+    lado = -1 if de_frente else 1
+    prep = [
+        _frame(0.1 * i, de_frente=de_frente, muneca_der_x=0.5 + 0.2 * lado, muneca_izq_x=0.5 - 0.15 * lado, fase="preparacion")
+        for i in range(5)
+    ]
+    impacto = _frame(0.6, de_frente=de_frente, muneca_der_x=0.5 - 0.02 * lado, muneca_izq_x=0.5 - 0.15 * lado)
+    orientacion = -1 if de_frente else 1
+    assert bio.clasificar_tipo_golpe(impacto, prep, [], orientacion=orientacion) == bio.TIPO_DERECHA
+
+
+def test_reves_a_dos_manos_por_el_armado():
+    # De espaldas: muñecas juntas en el lado izquierdo del jugador durante el armado
+    prep = [
+        _frame(0.1 * i, de_frente=False, muneca_der_x=0.38, muneca_izq_x=0.36, fase="preparacion")
+        for i in range(5)
+    ]
+    impacto = _frame(0.6, de_frente=False, muneca_der_x=0.5, muneca_izq_x=0.48)
+    assert bio.clasificar_tipo_golpe(impacto, prep, [], orientacion=1) == bio.TIPO_REVES_2
+
+
+# --------------------------------------------------------------------------
+# Textos coherentes con los umbrales y la lateralidad
+# --------------------------------------------------------------------------
+
+
+def test_texto_de_la_base_coincide_con_el_umbral():
+    meta = bio.META_COACH["base"]
+    assert f"{bio.BASE_OPTIMA:.1f}" in meta["objetivo_texto"]
+    assert f"{bio.BASE_OPTIMA:.1f}" in meta["fallo"](0.6)[1]
+
+
+def test_consejo_del_codo_nombra_el_brazo_dominante(tmp_path):
+    ruta = _escribir_csv(tmp_path / "m.csv", codo_der_max=120, codo_izq_max=120)
+    zurdo = _evaluacion(bio.generar_feedback(ruta, lateralidad="zurdo"), "codo")
+    assert "izquierdo" in zurdo["consejo_corto"]
+    assert zurdo["zona_corporal"] == "brazo_izq"
+
+
+def test_la_nota_de_cada_fallo_usa_el_objetivo_de_su_golpe(tmp_path):
+    ruta = _escribir_csv(tmp_path / "m.csv", rodilla_min=150)
+    fases = _fases_con_tipos([bio.TIPO_SAQUE] * 3)
+    rodilla = _evaluacion(bio.generar_feedback(ruta, golpes_fases=fases), "rodilla")
+    perfil = bio._perfil_golpe(bio.TIPO_SAQUE)
+    objetivo = f"{perfil['rodilla_min']:.0f}°–{perfil['rodilla_max']:.0f}°"
+    assert all(objetivo in d["nota_corta"] for d in rodilla["eventos_detalle"])

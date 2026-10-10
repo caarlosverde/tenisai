@@ -44,6 +44,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.types import Scope
 
+from biomecanica import ELECCIONES_GOLPE
+
 logger = logging.getLogger("uvicorn.error")
 
 
@@ -231,6 +233,7 @@ def _respuesta_resultado(job_id: str, manifest: dict) -> dict:
         "feedback": manifest.get("feedback", []),
         "resumen_general": manifest.get("resumen_general"),
         "tipo_golpe": manifest.get("tipo_golpe"),
+        "golpes": manifest.get("golpes", []),
         "lateralidad": manifest.get("lateralidad"),
         "estilo_reves": manifest.get("estilo_reves"),
         "estilo_derecha": manifest.get("estilo_derecha"),
@@ -365,6 +368,7 @@ def _ejecutar_analisis(job_id: str, trabajo: dict) -> None:
             estilo_reves=trabajo["estilo_reves"],
             estilo_derecha=trabajo["estilo_derecha"],
             lateralidad=trabajo["lateralidad"],
+            tipo_golpe=trabajo.get("tipo_golpe_elegido", "auto"),
         )
 
         datos = feedback if isinstance(feedback, dict) else {"evaluaciones": feedback}
@@ -382,6 +386,8 @@ def _ejecutar_analisis(job_id: str, trabajo: dict) -> None:
             "feedback": datos.get("evaluaciones", []),
             "resumen_general": datos.get("resumen_general"),
             "tipo_golpe": datos.get("tipo_golpe"),
+            "tipo_golpe_elegido": trabajo.get("tipo_golpe_elegido", "auto"),
+            "golpes": datos.get("golpes", []),
             "lateralidad": datos.get("lateralidad", trabajo["lateralidad"]),
             "estilo_reves": datos.get("estilo_reves", trabajo["estilo_reves"]),
             "estilo_derecha": datos.get("estilo_derecha", trabajo["estilo_derecha"]),
@@ -553,9 +559,15 @@ async def analizar_video(
     estilo_reves: str = Form("2_manos"),
     estilo_derecha: str = Form("tradicional"),
     lateralidad: str = Form("diestro"),
+    tipo_golpe: str = Form("auto"),
 ) -> dict:
     """Recibe un vídeo, lo pone en la cola y devuelve su job_id."""
     llamante = _identificar_llamante(request)
+
+    # "auto": el motor clasifica cada golpe; si no, el que indica el jugador
+    eleccion_golpe = (tipo_golpe or "").strip().lower()
+    if eleccion_golpe not in ELECCIONES_GOLPE:
+        eleccion_golpe = "auto"
 
     reves = (estilo_reves or "").strip().lower()
     if reves not in ("1_mano", "2_manos"):
@@ -606,6 +618,7 @@ async def analizar_video(
             "estilo_reves": reves,
             "estilo_derecha": derecha,
             "lateralidad": lat,
+            "tipo_golpe_elegido": eleccion_golpe,
             "_clave": llamante.clave,
             "_usuario_id": llamante.usuario_id,
         }

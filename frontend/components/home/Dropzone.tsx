@@ -7,8 +7,23 @@ import GuiaGrabacion from "@/components/home/GuiaGrabacion";
 import { tamanoArchivo } from "@/lib/formato";
 import { ACCEPT_VIDEO, MAX_VIDEO_MB, formatoVideo } from "@/lib/video";
 
+/** Valores que acepta el motor; "auto" clasifica cada golpe del vídeo. */
+export const TIPOS_GOLPE_ELEGIBLES = [
+  { valor: "auto", texto: "Automático" },
+  { valor: "derecha", texto: "Derecha" },
+  { valor: "reves", texto: "Revés" },
+  { valor: "saque", texto: "Saque" },
+  { valor: "volea", texto: "Volea" },
+  { valor: "remate", texto: "Remate" },
+  { valor: "cortado", texto: "Cortado" },
+] as const;
+
+export type TipoGolpeElegido = (typeof TIPOS_GOLPE_ELEGIBLES)[number]["valor"];
+
 type DropzoneProps = {
   file: File | null;
+  tipoGolpe: TipoGolpeElegido;
+  onTipoGolpe: (tipo: TipoGolpeElegido) => void;
   isDragging: boolean;
   isAnalyzing: boolean;
   onDragOver: (event: DragEvent<HTMLDivElement>) => void;
@@ -27,6 +42,8 @@ type DropzoneProps = {
 /** Zona para arrastrar o elegir el vídeo y lanzar el análisis. */
 export default function Dropzone({
   file,
+  tipoGolpe,
+  onTipoGolpe,
   isDragging,
   isAnalyzing,
   onDragOver,
@@ -139,6 +156,44 @@ export default function Dropzone({
                 Cambiar
               </button>
             </div>
+
+            <fieldset className="text-left" disabled={isAnalyzing}>
+              <legend className="text-sm font-medium text-white">¿Qué golpe hay en el vídeo?</legend>
+              <div
+                role="radiogroup"
+                aria-label="Tipo de golpe"
+                className="mt-2.5 flex flex-wrap gap-2"
+              >
+                {TIPOS_GOLPE_ELEGIBLES.map(({ valor, texto }) => {
+                  const activo = tipoGolpe === valor;
+                  return (
+                    <button
+                      key={valor}
+                      type="button"
+                      role="radio"
+                      aria-checked={activo}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onTipoGolpe(valor);
+                      }}
+                      className={[
+                        "rounded-full border px-3.5 py-1.5 text-sm transition disabled:cursor-not-allowed disabled:opacity-50",
+                        activo
+                          ? "border-cyan-300/60 bg-cyan-400/20 font-medium text-cyan-50"
+                          : "border-white/10 bg-white/5 text-slate-300 hover:border-white/25 hover:text-white",
+                      ].join(" ")}
+                    >
+                      {texto}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                {tipoGolpe === "auto"
+                  ? "Se reconoce cada golpe del vídeo. Si sabes cuál es, elígelo: el análisis será más fiable."
+                  : "Todos los golpes del vídeo se analizarán con las reglas de este golpe."}
+              </p>
+            </fieldset>
 
             <button
               type="button"

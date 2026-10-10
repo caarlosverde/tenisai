@@ -25,7 +25,12 @@ from mediapipe.tasks.python.vision import drawing_utils
 from scipy.signal import savgol_filter
 from ultralytics import YOLO
 
-from biomecanica import anotar_fases_golpe, generar_feedback
+from biomecanica import (
+    anotar_fases_golpe,
+    clasificar_golpes,
+    generar_feedback,
+    tipo_elegido,
+)
 
 # ---------------------------------------------------------------------------
 # Rutas y constantes
@@ -97,6 +102,11 @@ LANDMARKS_TRACK = {
 
 SAVGOL_WINDOW = 11
 SAVGOL_POLYORDER = 3
+# Por debajo de esta visibilidad MediaPipe está adivinando la articulación (oculta
+# tras el cuerpo o fuera de plano): sus métricas no se usan en la evaluación. No es
+# más alto porque la muñeca baja a 0,35-0,40 en pleno swing por el desenfoque, y
+# se perderían el codo y el spacing justo en el impacto
+UMBRAL_VISIBILIDAD_METRICAS = 0.3
 
 # Suavizado temporal del overlay MP4: landmarks un poco más reactivos que los textos
 EMA_ALPHA_LANDMARKS = 0.55
@@ -158,8 +168,68 @@ def inclinacion_respecto_vertical(
     return abs(math.degrees(math.atan2(vx, -vy)))
 
 
-def extraer_metricas_pose(pose_landmarks, frame_w: int, frame_h: int) -> dict:
-    """Ángulos y métricas espaciales normalizadas de un esqueleto MediaPipe."""
+def _punto_3d(landmark) -> np.ndarray:
+    return np.array([float(landmark.x), float(landmark.y), float(landmark.z)])
+
+
+def distancia_a_eje(
+    punto: np.ndarray, eje_a: np.ndarray, eje_b: np.ndarray
+) -> float:
+    """Distancia de un punto a la recta que pasa por eje_a y eje_b (2D o 3D)."""
+    eje = eje_b - eje_a
+    largo = float(np.linalg.norm(eje))
+    if largo < 1e-9:
+        return float(np.linalg.norm(punto - eje_a))
+    rel = punto - eje_a
+    proyeccion = float(np.dot(rel, eje)) / largo
+    return math.sqrt(max(float(np.dot(rel, rel)) - proyeccion**2, 0.0))
+
+
+def _metricas_distancia_3d(mundo) -> dict[str, float]:
+    """
+    Base y separación de la muñeca con las coordenadas 3D de MediaPipe (en
+    metros): no cambian según desde dónde se grabe. En 2D, de perfil los
+    hombros se ven estrechos y la base sale enorme; y la muñeca por delante del
+    cuerpo apenas se separa en horizontal si la cámara está detrás.
+    """
+    hombro_izq, hombro_der = _punto_3d(mundo[LEFT_SHOULDER]), _punto_3d(mundo[RIGHT_SHOULDER])
+    cadera_izq, cadera_der = _punto_3d(mundo[LEFT_HIP]), _punto_3d(mundo[RIGHT_HIP])
+    centro_hombros = (hombro_izq + hombro_der) / 2.0
+    centro_caderas = (cadera_izq + cadera_der) / 2.0
+    ancho_hombros = max(float(np.linalg.norm(hombro_izq - hombro_der)), 1e-3)
+    escala = max(ancho_hombros, float(np.linalg.norm(centro_hombros - centro_caderas)))
+    return {
+        "distancia_muneca_cuerpo": distancia_a_eje(
+            _punto_3d(mundo[RIGHT_WRIST]), centro_caderas, centro_hombros
+        )
+        / escala,
+        "distancia_muneca_izq": distancia_a_eje(
+            _punto_3d(mundo[LEFT_WRIST]), centro_caderas, centro_hombros
+        )
+        / escala,
+        "amplitud_base": float(
+            np.linalg.norm(_punto_3d(mundo[LEFT_ANKLE]) - _punto_3d(mundo[RIGHT_ANKLE]))
+        )
+        / ancho_hombros,
+    }
+
+
+def extraer_metricas_pose(
+    pose_landmarks,
+    frame_w: int,
+    frame_h: int,
+    *,
+    mundo=None,
+    min_visibilidad: float = 0.0,
+) -> dict:
+    """
+    Ángulos y métricas espaciales normalizadas de un esqueleto MediaPipe.
+
+    mundo: landmarks 3D de MediaPipe (metros); si están, la base y la separación
+    de la muñeca se miden en 3D. min_visibilidad: una métrica vale None si alguna
+    de sus articulaciones tiene menos visibilidad (oculta o mal detectada), para
+    que no entre en las medias.
+    """
     p_hombro_izq = landmark_px(pose_landmarks[LEFT_SHOULDER], frame_w, frame_h)
     p_hombro_der = landmark_px(pose_landmarks[RIGHT_SHOULDER], frame_w, frame_h)
     p_codo_izq = landmark_px(pose_landmarks[LEFT_ELBOW], frame_w, frame_h)
@@ -176,20 +246,66 @@ def extraer_metricas_pose(pose_landmarks, frame_w: int, frame_h: int) -> dict:
     centro_hombros = punto_medio(p_hombro_izq, p_hombro_der)
     centro_caderas = punto_medio(p_cadera_izq, p_cadera_der)
     escala = calcular_escala(p_hombro_izq, p_hombro_der, p_cadera_izq, p_cadera_der)
-    ancho_hombros = max(distancia(p_hombro_izq, p_hombro_der), 1.0)
+    # Sin 3D, de perfil el ancho de hombros se ve casi nulo: se usa como mínimo
+    # el que corresponde a la longitud del tronco (hombros ≈ 0,9 veces el tronco)
+    torso = distancia(centro_caderas, centro_hombros)
+    ancho_hombros = max(distancia(p_hombro_izq, p_hombro_der), 0.9 * torso, 1.0)
 
+    if mundo is not None:
+        distancias = _metricas_distancia_3d(mundo)
+    else:
+        eje_a, eje_b = np.array(centro_caderas), np.array(centro_hombros)
+        distancias = {
+            "distancia_muneca_cuerpo": distancia_a_eje(np.array(p_muneca_der), eje_a, eje_b)
+            / escala,
+            "distancia_muneca_izq": distancia_a_eje(np.array(p_muneca_izq), eje_a, eje_b)
+            / escala,
+            "amplitud_base": distancia(p_tobillo_izq, p_tobillo_der) / ancho_hombros,
+        }
+
+    def visibles(*indices: int) -> bool:
+        return all(_visibilidad(pose_landmarks[i]) >= min_visibilidad for i in indices)
+
+    def si_visibles(valor: float, *indices: int) -> float | None:
+        return float(valor) if visibles(*indices) else None
+
+    tronco = (LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_HIP, RIGHT_HIP)
     return {
-        "angulo_codo_der": calcular_angulo(p_hombro_der, p_codo_der, p_muneca_der),
-        "angulo_codo_izq": calcular_angulo(p_hombro_izq, p_codo_izq, p_muneca_izq),
-        "angulo_rodilla_der": calcular_angulo(p_cadera_der, p_rodilla_der, p_tobillo_der),
-        "angulo_rodilla_izq": calcular_angulo(p_cadera_izq, p_rodilla_izq, p_tobillo_izq),
-        "apertura_hombro_der": calcular_angulo(p_cadera_der, p_hombro_der, p_codo_der),
-        "apertura_hombro_izq": calcular_angulo(p_cadera_izq, p_hombro_izq, p_codo_izq),
-        "distancia_muneca_cuerpo": abs(p_muneca_der[0] - centro_caderas[0]) / escala,
-        "distancia_muneca_izq": abs(p_muneca_izq[0] - centro_caderas[0]) / escala,
-        "amplitud_base": distancia(p_tobillo_izq, p_tobillo_der) / ancho_hombros,
-        "inclinacion_tronco": inclinacion_respecto_vertical(
-            centro_caderas, centro_hombros
+        "angulo_codo_der": si_visibles(
+            calcular_angulo(p_hombro_der, p_codo_der, p_muneca_der),
+            RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST,
+        ),
+        "angulo_codo_izq": si_visibles(
+            calcular_angulo(p_hombro_izq, p_codo_izq, p_muneca_izq),
+            LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST,
+        ),
+        "angulo_rodilla_der": si_visibles(
+            calcular_angulo(p_cadera_der, p_rodilla_der, p_tobillo_der),
+            RIGHT_HIP, RIGHT_KNEE, RIGHT_ANKLE,
+        ),
+        "angulo_rodilla_izq": si_visibles(
+            calcular_angulo(p_cadera_izq, p_rodilla_izq, p_tobillo_izq),
+            LEFT_HIP, LEFT_KNEE, LEFT_ANKLE,
+        ),
+        "apertura_hombro_der": si_visibles(
+            calcular_angulo(p_cadera_der, p_hombro_der, p_codo_der),
+            RIGHT_HIP, RIGHT_SHOULDER, RIGHT_ELBOW,
+        ),
+        "apertura_hombro_izq": si_visibles(
+            calcular_angulo(p_cadera_izq, p_hombro_izq, p_codo_izq),
+            LEFT_HIP, LEFT_SHOULDER, LEFT_ELBOW,
+        ),
+        "distancia_muneca_cuerpo": si_visibles(
+            distancias["distancia_muneca_cuerpo"], RIGHT_WRIST, *tronco
+        ),
+        "distancia_muneca_izq": si_visibles(
+            distancias["distancia_muneca_izq"], LEFT_WRIST, *tronco
+        ),
+        "amplitud_base": si_visibles(
+            distancias["amplitud_base"], LEFT_ANKLE, RIGHT_ANKLE, LEFT_SHOULDER, RIGHT_SHOULDER
+        ),
+        "inclinacion_tronco": si_visibles(
+            inclinacion_respecto_vertical(centro_caderas, centro_hombros), *tronco
         ),
         "p_codo_der": p_codo_der,
         "p_rodilla_der": p_rodilla_der,
@@ -459,13 +575,14 @@ class _LandmarkSuave:
 
 
 def clonar_landmarks(pose_landmarks) -> list[_LandmarkSuave]:
+    # Sin dato de visibilidad se supone visible; un 0 real se conserva
     return [
         _LandmarkSuave(
             getattr(lm, "x", 0.0),
             getattr(lm, "y", 0.0),
             getattr(lm, "z", 0.0),
-            getattr(lm, "visibility", 1.0) or 1.0,
-            getattr(lm, "presence", 1.0) or 1.0,
+            _visibilidad(lm),
+            1.0 if getattr(lm, "presence", None) is None else float(lm.presence),
         )
         for lm in pose_landmarks
     ]
@@ -492,7 +609,9 @@ def suavizar_landmarks(
     ]
 
 
-def ema(actual: float, anterior: float | None, alpha: float) -> float:
+def ema(actual: float | None, anterior: float | None, alpha: float) -> float | None:
+    if actual is None:
+        return anterior
     if anterior is None:
         return actual
     return alpha * actual + (1.0 - alpha) * anterior
@@ -586,51 +705,55 @@ def dibujar_cajas_pelota(frame: np.ndarray, cajas: list[dict]) -> int:
 def dibujar_angulos_overlay(
     frame: np.ndarray,
     metricas: dict,
-    angulo_codo: float,
-    angulo_rod_der: float,
-    angulo_rod_izq: float,
+    angulo_codo: float | None,
+    angulo_rod_der: float | None,
+    angulo_rod_izq: float | None,
 ) -> None:
-    p_codo = metricas["p_codo_der"]
-    p_rodilla_der = metricas["p_rodilla_der"]
-    p_rodilla_izq = metricas["p_rodilla_izq"]
-    cv2.putText(
-        frame,
-        f"{angulo_codo:.1f}",
-        (int(p_codo[0]) + 10, int(p_codo[1]) - 10),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        (0, 255, 255),
-        2,
-        cv2.LINE_AA,
-    )
-    cv2.putText(
-        frame,
-        f"{angulo_rod_der:.1f}",
-        (int(p_rodilla_der[0]) + 10, int(p_rodilla_der[1]) - 10),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        (255, 200, 0),
-        2,
-        cv2.LINE_AA,
-    )
-    cv2.putText(
-        frame,
-        f"{angulo_rod_izq:.1f}",
-        (int(p_rodilla_izq[0]) + 10, int(p_rodilla_izq[1]) - 10),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        (0, 200, 255),
-        2,
-        cv2.LINE_AA,
-    )
+    for angulo, punto, color in (
+        (angulo_codo, metricas["p_codo_der"], (0, 255, 255)),
+        (angulo_rod_der, metricas["p_rodilla_der"], (255, 200, 0)),
+        (angulo_rod_izq, metricas["p_rodilla_izq"], (0, 200, 255)),
+    ):
+        if angulo is None:
+            continue
+        cv2.putText(
+            frame,
+            f"{angulo:.1f}",
+            (int(punto[0]) + 10, int(punto[1]) - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            color,
+            2,
+            cv2.LINE_AA,
+        )
 
 
 def suavizar_serie(
-    valores: list[float],
+    valores: list[float | None],
     window_length: int = SAVGOL_WINDOW,
     polyorder: int = SAVGOL_POLYORDER,
+) -> list[float | None]:
+    """
+    Savitzky-Golay por tramos: los huecos (None, articulación poco visible) se
+    mantienen y no se rellenan con valores inventados.
+    """
+    resultado: list[float | None] = [None] * len(valores)
+    inicio = None
+    for i, valor in enumerate([*valores, None]):
+        if valor is not None and inicio is None:
+            inicio = i
+        elif valor is None and inicio is not None:
+            resultado[inicio:i] = _suavizar_tramo(
+                [float(v) for v in valores[inicio:i]], window_length, polyorder
+            )
+            inicio = None
+    return resultado
+
+
+def _suavizar_tramo(
+    valores: list[float], window_length: int, polyorder: int
 ) -> list[float]:
-    """Aplica Savitzky-Golay adaptando la ventana si la serie es corta."""
+    """Aplica Savitzky-Golay adaptando la ventana si el tramo es corto."""
     if len(valores) < 5:
         return [round(v, 2) for v in valores]
 
@@ -822,6 +945,7 @@ def procesar_video(
     estilo_reves: str = "2_manos",
     estilo_derecha: str = "tradicional",
     lateralidad: str = "diestro",
+    tipo_golpe: str = "auto",
 ) -> tuple[Path, Path, dict]:
     """
     Procesa un vídeo de tenis: pose, ángulos de codo/rodillas, vídeo anotado y CSV.
@@ -834,6 +958,8 @@ def procesar_video(
                       En servidor/API debe permanecer False.
         on_progress: Callback (frames_procesados, frames_totales) tras cada frame,
                      para alimentar la barra de progreso de la API.
+        tipo_golpe: "auto" para clasificar cada golpe, o el que indica el jugador
+                    ("derecha", "reves", "saque", "volea", "remate", "cortado").
 
     Returns:
         (ruta_video_anotado, ruta_csv_metricas, analisis_entrenador)
@@ -888,17 +1014,18 @@ def procesar_video(
     print(f"Exportando resultado a: {output_video_path} ({output_width}x{OUTPUT_HEIGHT})")
 
     # Series crudas (se suavizan al final antes de escribir el CSV)
+    # None: articulación poco visible en ese frame (queda vacío en el CSV)
     timestamps_ms: list[int] = []
-    angulos_codo: list[float] = []
-    angulos_codo_izq: list[float] = []
-    angulos_rodilla_der: list[float] = []
-    angulos_rodilla_izq: list[float] = []
-    aperturas_hombro: list[float] = []
-    aperturas_hombro_izq: list[float] = []
-    distancias_muneca: list[float] = []
-    distancias_muneca_izq: list[float] = []
-    amplitudes_base: list[float] = []
-    inclinaciones_tronco: list[float] = []
+    angulos_codo: list[float | None] = []
+    angulos_codo_izq: list[float | None] = []
+    angulos_rodilla_der: list[float | None] = []
+    angulos_rodilla_izq: list[float | None] = []
+    aperturas_hombro: list[float | None] = []
+    aperturas_hombro_izq: list[float | None] = []
+    distancias_muneca: list[float | None] = []
+    distancias_muneca_izq: list[float | None] = []
+    amplitudes_base: list[float | None] = []
+    inclinaciones_tronco: list[float | None] = []
     pose_tracks: list[dict] = []
 
     options = vision.PoseLandmarkerOptions(
@@ -925,6 +1052,7 @@ def procesar_video(
     tiempo_yolo = 0.0
     landmarks_previos: list[_LandmarkSuave] | None = None
     landmarks_crudos_previos: list[_LandmarkSuave] | None = None
+    mundo_previo = None  # Landmarks 3D (metros) del último esqueleto detectado
     frames_sin_pose = 0
     angulos_overlay = {
         "codo": None,
@@ -977,12 +1105,18 @@ def procesar_video(
                     landmarks_previos = suavizar_landmarks(
                         pose_cruda, landmarks_previos
                     )
+                    mundo_previo = (
+                        results.pose_world_landmarks[0]
+                        if results.pose_world_landmarks
+                        else None
+                    )
                 elif landmarks_previos is not None and frames_sin_pose < GRACE_FRAMES:
                     frames_sin_pose += 1
                 else:
                     frames_sin_pose += 1
                     landmarks_previos = None
                     landmarks_crudos_previos = None
+                    mundo_previo = None
 
                 tobillos: list[tuple[float, float]] = []
                 pose_para_dibujo = landmarks_previos
@@ -1001,7 +1135,11 @@ def procesar_video(
                     )
 
                     metricas = extraer_metricas_pose(
-                        pose_para_dibujo, frame_w, frame_h
+                        pose_para_dibujo,
+                        frame_w,
+                        frame_h,
+                        mundo=mundo_previo,
+                        min_visibilidad=UMBRAL_VISIBILIDAD_METRICAS,
                     )
                     tobillos.extend(
                         (metricas["p_tobillo_der"], metricas["p_tobillo_izq"])
@@ -1205,6 +1343,15 @@ def procesar_video(
     frames_suaves, golpes_fases = anotar_fases_golpe(
         frames_suaves, lateralidad=lateralidad
     )
+    # Antes de guardar los tracks: así el reproductor sabe el tipo de cada golpe
+    tipo_forzado = tipo_elegido(tipo_golpe, estilo_reves)
+    clasificar_golpes(
+        frames_suaves,
+        golpes_fases,
+        estilo_reves=estilo_reves,
+        lateralidad=lateralidad,
+        tipo_forzado=tipo_forzado,
+    )
     escribir_pose_tracks(
         pose_tracks_path,
         fps,
@@ -1230,6 +1377,7 @@ def procesar_video(
         estilo_reves=estilo_reves,
         estilo_derecha=estilo_derecha,
         lateralidad=lateralidad,
+        tipo_forzado=tipo_forzado,
     )
     evaluaciones = feedback.get("evaluaciones", [])
     print(f"Feedback biomecánico: {len(evaluaciones)} evaluaciones agrupadas")

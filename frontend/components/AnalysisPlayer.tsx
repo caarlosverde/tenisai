@@ -45,7 +45,12 @@ import {
   PAUSE_PEAK_WINDOW,
   STEPPER_FASES,
 } from "./analysis-player/constantes";
-import { interpolateFrame, lookupFase, pickPhaseTimestamps } from "./analysis-player/pose";
+import {
+  interpolateFrame,
+  lookupFase,
+  pickPhaseTimestamps,
+  tipoGolpeEn,
+} from "./analysis-player/pose";
 import { contentRect, waitSeeked } from "./analysis-player/video";
 import { activeHits, flattenFaults } from "./analysis-player/coach";
 import { drawOverlay } from "./analysis-player/dibujo";
@@ -131,6 +136,8 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
   const [pauseOnFaults, setPauseOnFaults] = useState(false);
   const [banner, setBanner] = useState<CoachHit | null>(null);
   const [currentFase, setCurrentFase] = useState("recuperacion");
+  // Tipo del golpe que se está viendo (null: el del clip)
+  const [tipoActual, setTipoActual] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
   const [proporcion, setProporcion] = useState(16 / 9);
   const [tamano, setTamano] = useState<{ w: number; h: number } | null>(null);
@@ -155,6 +162,7 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
   const lastTimeRef = useRef(0);
   const bannerKeyRef = useRef<string | null>(null);
   const faseKeyRef = useRef<string>("recuperacion");
+  const tipoActualRef = useRef<string | null>(null);
   const holdingPauseRef = useRef(false);
   const seguirRef = useRef(seguirJugador);
   const zoomRef = useRef({ s: 1, cx: 0, cy: 0, ultimo: 0 });
@@ -225,7 +233,7 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
                   clear: false,
                   letterbox: false,
                   phaseLabel: `${punto.fase_label}  ·  ${punto.t.toFixed(2)}s`,
-                  tipoGolpe: tipoGolpeRef.current,
+                  tipoGolpe: tipoGolpeEn(data, punto.t, tipoGolpeRef.current),
                   lateralidad: lateralidadRef.current,
                   escala: Math.max(1, h / 720),
                 },
@@ -517,6 +525,12 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
         setCurrentFase(faseAhora.fase);
       }
 
+      const tipoAhora = tipoGolpeEn(tracksRef.current, time, null);
+      if (tipoAhora !== tipoActualRef.current) {
+        tipoActualRef.current = tipoAhora;
+        setTipoActual(tipoAhora);
+      }
+
       if (
         pauseOnFaultsRef.current &&
         video &&
@@ -559,7 +573,7 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
       }
       const hits = activeHits(faultsRef.current, time, FAULT_WINDOW);
       drawOverlay(ctx, video, frame, layersRef.current, hits, {
-        tipoGolpe: tipoGolpeRef.current,
+        tipoGolpe: tipoGolpeEn(data, time, tipoGolpeRef.current),
         lateralidad: lateralidadRef.current,
         // El zoom amplía también el canvas: se compensa para que líneas y textos
         // se vean siempre del mismo tamaño en pantalla
@@ -815,9 +829,9 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
                   style={{ display: showCanvas ? "block" : "none" }}
                 />
               </div>
-              {tipoGolpe ? (
+              {tipoActual ?? tipoGolpe ? (
                 <span className="pointer-events-none absolute left-3 top-3 rounded-full border border-amber-300/50 bg-black/60 px-3 py-1 text-[11px] font-semibold text-amber-100 backdrop-blur">
-                  🎾 {tipoGolpe}
+                  🎾 {tipoActual ?? tipoGolpe}
                 </span>
               ) : null}
               {!reproduciendo ? (

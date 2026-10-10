@@ -9,7 +9,7 @@ import {
 } from "react";
 import { RotateCcw, UserRound } from "lucide-react";
 import AnalyzeLoader from "@/components/AnalyzeLoader";
-import Dropzone from "@/components/home/Dropzone";
+import Dropzone, { type TipoGolpeElegido } from "@/components/home/Dropzone";
 import Hero from "@/components/home/Hero";
 import Landing from "@/components/home/Landing";
 import ResultsPanel, {
@@ -103,6 +103,7 @@ export default function HomePage() {
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [processedUrl, setProcessedUrl] = useState<string | null>(null);
   const [tracksUrl, setTracksUrl] = useState<string | null>(null);
+  const [tipoElegido, setTipoElegido] = useState<TipoGolpeElegido>("auto");
 
   const hasResults = Boolean(originalUrl && processedUrl);
 
@@ -208,6 +209,7 @@ export default function HomePage() {
       formData.append("estilo_reves", estiloReves);
       formData.append("estilo_derecha", estiloDerecha);
       formData.append("lateralidad", lateralidad);
+      formData.append("tipo_golpe", tipoElegido);
 
       let response: Response;
       try {
@@ -307,11 +309,13 @@ export default function HomePage() {
       setIsAnalyzing(false);
       setProgress(null);
     }
-  }, [file, isAnalyzing, isLoggedIn, refresh]);
+  }, [file, isAnalyzing, isLoggedIn, refresh, tipoElegido]);
 
   const zonaSubida = (
     <Dropzone
       file={file}
+      tipoGolpe={tipoElegido}
+      onTipoGolpe={setTipoElegido}
       isDragging={isDragging}
       isAnalyzing={isAnalyzing}
       onDragOver={onDragOver}

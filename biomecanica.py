@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import math
+from collections import Counter
 from pathlib import Path
 
 # Umbrales heurísticos
@@ -111,6 +112,13 @@ RODILLA_TROFEO_MAX = 128.0
 SUBIDA_IZQ_TROFEO = 0.05
 TERMINACION_DESCENSO_MIN = 0.02
 TERMINACION_LAZO_SUBIDA = 0.06
+# Orientación de la cámara: (hombros + caderas, derecha menos izquierda) / escala.
+# De espaldas a la cámara el lado derecho sale a la derecha (+1,5 en los vídeos de
+# prueba) y de frente a la izquierda (-1,0); de perfil o muy lejos queda cerca de 0
+ORIENTACION_CLARA = 0.5
+# Muñeca dominante durante la preparación, a un lado u otro del torso (en escalas):
+# derecha en el lado dominante (+0,6 a +1,4), revés en el contrario (-0,4 a -0,9)
+LADO_PREPARACION_MIN = 0.3
 
 # Metadatos visuales para el canvas del entrenador interactivo
 META_COACH = {
@@ -144,9 +152,9 @@ META_COACH = {
     },
     "base": {
         "zona_corporal": "base_tronco",
-        "objetivo_texto": "Ancho > 1.2x hombros",
+        "objetivo_texto": f"Objetivo: ≥{BASE_OPTIMA:.1f}× el ancho de hombros",
         "consejo_corto": "Separa los pies en la carga para estabilizar el golpe.",
-        "fallo": lambda v: (f"{v:.2f}×", f"Base estrecha ({v:.2f}× vs >1.2×)"),
+        "fallo": lambda v: (f"{v:.2f}×", f"Base estrecha ({v:.2f}× vs ≥{BASE_OPTIMA:.1f}×)"),
         "ok": lambda v: (f"{v:.2f}×", f"Apoyos sólidos ({v:.2f}×)"),
     },
     "tronco": {
@@ -485,17 +493,86 @@ def _estado_manos(
     return "duda"
 
 
+def orientacion_camara(frames: list[dict] | None) -> int:
+    """
+    1 si el jugador está de espaldas a la cámara, -1 si está de frente y 0 si no
+    se sabe (de perfil, o tan lejos que MediaPipe confunde izquierda y derecha).
+
+    De frente, el lado derecho del jugador sale a la izquierda de la imagen: sin
+    tenerlo en cuenta, una derecha parece un revés. Se mide entre golpes (posición
+    de espera, de cara a la red), cuando el jugador no está girado.
+    """
+    def valores(solo_espera: bool) -> list[float]:
+        salida = []
+        for frame in frames or []:
+            if solo_espera and frame.get("fase") != "recuperacion":
+                continue
+            puntos = [
+                _punto(frame, nombre)
+                for nombre in ("hombro_der", "hombro_izq", "cadera_der", "cadera_izq")
+            ]
+            if all(puntos):
+                hd, hi, cd, ci = puntos
+                salida.append(((hd[0] - hi[0]) + (cd[0] - ci[0])) / _escala_frame(frame))
+        return salida
+
+    serie = valores(True) or valores(False)
+    if not serie:
+        return 0
+    mediana = sorted(serie)[len(serie) // 2]
+    if mediana >= ORIENTACION_CLARA:
+        return 1
+    if mediana <= -ORIENTACION_CLARA:
+        return -1
+    return 0
+
+
+def _lado_preparacion(prep: list[dict], muneca_key: str, signo: int) -> float | None:
+    """
+    Mediana de dónde queda la muñeca dominante respecto al torso durante la
+    preparación (positivo: lado dominante). Es más fiable que mirar el impacto:
+    el pico de velocidad llega justo después del contacto, con el brazo cruzando.
+    """
+    lados = []
+    for frame in prep:
+        muneca, torso = _punto(frame, muneca_key), _torso_xy(frame)
+        if muneca and torso:
+            lados.append((muneca[0] - torso[0]) * signo / _escala_frame(frame))
+    if not lados:
+        return None
+    return sorted(lados)[len(lados) // 2]
+
+
+def _manos_en_preparacion(prep: list[dict], lado: dict) -> str:
+    """'juntas', 'separadas' o 'duda': el agarre a dos manos se ve en el armado."""
+    distancias = []
+    for frame in prep:
+        dom, nd = _punto(frame, lado["muneca_dom"]), _punto(frame, lado["muneca_nd"])
+        if dom and nd:
+            distancias.append(math.dist(dom, nd) / _escala_frame(frame))
+    if not distancias:
+        return "duda"
+    mediana = sorted(distancias)[len(distancias) // 2]
+    if mediana <= MANOS_JUNTAS_CLARO:
+        return "juntas"
+    if mediana >= MANOS_JUNTAS_SEPARADAS:
+        return "separadas"
+    return "duda"
+
+
 def clasificar_tipo_golpe(
     frame_impacto: dict | None,
     frames_preparacion: list[dict] | None,
     frames_terminacion: list[dict] | None,
     estilo_reves: str = ESTILO_REVES_2,
     lateralidad: str = LAT_DIESTRO,
+    orientacion: int = 1,
 ) -> str:
     """
     Clasifica el golpe a partir del esqueleto (Y hacia abajo).
     Usa el brazo dominante según lateralidad. estilo_reves desempata
     1 vs 2 manos cuando hay oclusión o duda en el lado no dominante.
+    orientacion: la de orientacion_camara (1 de espaldas, -1 de frente, 0 dudosa).
     """
     prep = frames_preparacion or []
     term = frames_terminacion or []
@@ -506,7 +583,8 @@ def clasificar_tipo_golpe(
         return TIPO_DERECHA
 
     lado = _lado(lateralidad)
-    dir_x = int(lado["dir_x"])
+    # De frente a la cámara, izquierda y derecha de la imagen se invierten
+    dir_x = int(lado["dir_x"]) * (-1 if orientacion == -1 else 1)
     prior_reves = _normalizar_estilo_reves(estilo_reves)
     muneca_dom = _punto(impacto, lado["muneca_dom"])
     muneca_nd = _punto(impacto, lado["muneca_nd"])
@@ -549,13 +627,22 @@ def clasificar_tipo_golpe(
         return TIPO_SAQUE if trofeo else TIPO_REMATE
 
     tipo_base = TIPO_DERECHA
-    impacto_reves = bool(
-        muneca_dom
-        and torso
-        and _cruzar_hacia_nd(torso[0], muneca_dom[0], dir_x)
+    lado_prep = (
+        _lado_preparacion(prep, lado["muneca_dom"], dir_x) if orientacion != 0 else None
     )
+    if lado_prep is not None and abs(lado_prep) >= LADO_PREPARACION_MIN:
+        impacto_reves = lado_prep < 0
+    else:
+        # Sin orientación clara o armado ambiguo: dónde queda la muñeca al impactar
+        impacto_reves = bool(
+            muneca_dom
+            and torso
+            and _cruzar_hacia_nd(torso[0], muneca_dom[0], dir_x)
+        )
     if impacto_reves:
-        estado_manos = _estado_manos(muneca_dom, muneca_nd, escala)
+        estado_manos = _manos_en_preparacion(prep, lado) if orientacion != 0 else "duda"
+        if estado_manos == "duda":
+            estado_manos = _estado_manos(muneca_dom, muneca_nd, escala)
         if estado_manos == "juntas":
             tipo_base = TIPO_REVES_2
         elif estado_manos == "separadas":
@@ -590,7 +677,9 @@ def clasificar_tipo_golpe(
             and y_cadera is not None
             and y_hombro - 0.02 <= muneca_dom[1] <= y_cadera - 0.01
         )
-        if apertura_max < VOLEA_APERTURA_MAX and impacto_alto:
+        # De perfil o con el jugador lejos el armado se ve casi nulo en 2D aunque
+        # sea un golpe de fondo: solo se llama volea si la orientación es clara
+        if apertura_max < VOLEA_APERTURA_MAX and impacto_alto and orientacion != 0:
             tipo_base = TIPO_VOLEA
 
     if tipo_base in (TIPO_VOLEA, TIPO_SAQUE, TIPO_REMATE):
@@ -614,38 +703,119 @@ def clasificar_tipo_golpe(
     return tipo_base
 
 
+def _impactos(golpes_fases: list[dict] | None) -> list[float]:
+    """Instantes de impacto distintos, en orden."""
+    return sorted(
+        {
+            float(g["t_impacto"])
+            for g in golpes_fases or []
+            if g.get("t_impacto") is not None
+        }
+    )
+
+
+ELECCIONES_GOLPE = ("auto", "derecha", "reves", "saque", "volea", "remate", "cortado")
+
+
+def tipo_elegido(eleccion: str | None, estilo_reves: str = ESTILO_REVES_2) -> str | None:
+    """
+    Tipo que indica el jugador al subir el vídeo; None si es automático. En el
+    revés no se pregunta a cuántas manos: se toma de su perfil (estilo_reves).
+    """
+    valor = (eleccion or "").strip().lower()
+    if valor == "reves":
+        return TIPO_REVES_1 if _normalizar_estilo_reves(estilo_reves) == ESTILO_REVES_1 else TIPO_REVES_2
+    return {
+        "derecha": TIPO_DERECHA,
+        "saque": TIPO_SAQUE,
+        "volea": TIPO_VOLEA,
+        "remate": TIPO_REMATE,
+        "cortado": TIPO_CORTADO,
+    }.get(valor)
+
+
+def clasificar_golpes(
+    frames: list[dict] | None,
+    golpes_fases: list[dict] | None,
+    estilo_reves: str = ESTILO_REVES_2,
+    lateralidad: str = LAT_DIESTRO,
+    tipo_forzado: str | None = None,
+) -> list[tuple[float, str]]:
+    """
+    Clasifica cada golpe del clip por separado: en un mismo vídeo puede haber
+    derechas y reveses. Devuelve [(t_impacto, tipo)] y anota el tipo en las
+    fases de cada golpe (campo tipo_golpe). tipo_forzado: el que indicó el
+    jugador al subir el vídeo (de tipo_elegido); se aplica a todos los golpes.
+    """
+    if not frames or not golpes_fases:
+        return []
+    if tipo_forzado:
+        golpes = [(t_imp, tipo_forzado) for t_imp in _impactos(golpes_fases)]
+        for g in golpes_fases:
+            if g.get("t_impacto") is not None:
+                g["tipo_golpe"] = tipo_forzado
+        print(f"Tipo de golpe indicado por el jugador: {tipo_forzado} ({len(golpes)} golpe(s))")
+        return golpes
+    orientacion = orientacion_camara(frames)
+    golpes = []
+    for t_imp in _impactos(golpes_fases):
+        prep = _frames_en_ventanas(frames, golpes_fases, "preparacion", t_imp)
+        carga = _frames_en_ventanas(frames, golpes_fases, "carga", t_imp)
+        term = _frames_en_ventanas(frames, golpes_fases, "terminacion", t_imp)
+        tipo = clasificar_tipo_golpe(
+            _frame_mas_cercano(frames, t_imp),
+            prep + carga,
+            term,
+            estilo_reves=estilo_reves,
+            lateralidad=lateralidad,
+            orientacion=orientacion,
+        )
+        for g in golpes_fases:
+            if g.get("t_impacto") is not None and float(g["t_impacto"]) == t_imp:
+                g["tipo_golpe"] = tipo
+        golpes.append((t_imp, tipo))
+    vista = {1: "de espaldas", -1: "de frente", 0: "dudosa"}[orientacion]
+    print(
+        f"Tipos de golpe (cámara {vista}): "
+        + ", ".join(f"{tipo} (t={t:.2f}s)" for t, tipo in golpes)
+    )
+    return golpes
+
+
+def _golpes_de_fases(golpes_fases: list[dict] | None) -> list[tuple[float, str]] | None:
+    """Tipos ya anotados en las fases (por main.py); None si falta alguno."""
+    golpes: dict[float, str] = {}
+    for g in golpes_fases or []:
+        if g.get("t_impacto") is None:
+            continue
+        tipo = g.get("tipo_golpe")
+        if not tipo:
+            return None
+        golpes[float(g["t_impacto"])] = str(tipo)
+    return sorted(golpes.items()) if golpes else None
+
+
+def tipo_principal(golpes: list[tuple[float, str]]) -> str:
+    """El tipo más repetido del clip; en caso de empate, el que aparece antes."""
+    if not golpes:
+        return TIPO_DERECHA
+    conteo = Counter(tipo for _, tipo in golpes)
+    maximo = max(conteo.values())
+    return next(tipo for _, tipo in golpes if conteo[tipo] == maximo)
+
+
 def clasificar_tipo_golpe_clip(
     frames: list[dict] | None,
     golpes_fases: list[dict] | None,
     estilo_reves: str = ESTILO_REVES_2,
     lateralidad: str = LAT_DIESTRO,
 ) -> str:
-    """Clasifica el golpe principal del clip (primer impacto)."""
-    if not frames or not golpes_fases:
-        return TIPO_DERECHA
-    impactos = sorted(
-        {
-            float(g["t_impacto"])
-            for g in golpes_fases
-            if g.get("t_impacto") is not None
-        }
+    """Tipo de golpe principal del clip (el más repetido)."""
+    return tipo_principal(
+        clasificar_golpes(
+            frames, golpes_fases, estilo_reves=estilo_reves, lateralidad=lateralidad
+        )
     )
-    if not impactos:
-        return TIPO_DERECHA
-    t_imp = impactos[0]
-    frame_imp = _frame_mas_cercano(frames, t_imp)
-    prep = _frames_en_ventanas(frames, golpes_fases, "preparacion", t_imp)
-    carga = _frames_en_ventanas(frames, golpes_fases, "carga", t_imp)
-    term = _frames_en_ventanas(frames, golpes_fases, "terminacion", t_imp)
-    tipo = clasificar_tipo_golpe(
-        frame_imp,
-        prep + carga,
-        term,
-        estilo_reves=estilo_reves,
-        lateralidad=lateralidad,
-    )
-    print(f"Tipo de golpe detectado: {tipo} (impacto t={t_imp:.2f}s)")
-    return tipo
 
 
 def _perfil_golpe(
@@ -722,7 +892,11 @@ def _en_fase(
     golpes_fases: list[dict] | None,
     fase: str,
 ) -> list[tuple[int, float]]:
-    """Filtra la serie a las ventanas de una fase; si queda vacía, no recorta."""
+    """
+    Filtra la serie a las ventanas de una fase. Sin golpes detectados se usa el
+    clip entero; con golpes, nunca: si no hay datos en sus ventanas (jugador no
+    detectado) se evaluarían momentos de otros golpes.
+    """
     if not serie or not golpes_fases:
         return serie
     ventanas = [
@@ -730,12 +904,11 @@ def _en_fase(
     ]
     if not ventanas:
         return serie
-    filtrada = [
+    return [
         (t, v)
         for t, v in serie
         if any(a - 1e-3 <= t / 1000.0 <= b + 1e-3 for a, b in ventanas)
     ]
-    return filtrada or serie
 
 
 def _leer_filas(ruta: Path) -> list[dict[str, float | None]]:
@@ -899,12 +1072,17 @@ def _evaluacion(
     consejo_corto: str | None = None,
     fase: str | None = None,
     zona_corporal: str | None = None,
+    nota_fallo=None,
 ) -> dict:
+    """nota_fallo sustituye a la nota de META_COACH cuando el objetivo depende del golpe."""
     timestamps = [_segundos(t) for t, _ in episodios]
     primero_ms = episodios[0][0] if episodios else 0
     meta = META_COACH.get(categoria, {})
     fase_id = fase or FASE_POR_CATEGORIA.get(categoria, "impacto")
-    pack_fn = meta.get("ok" if tipo == "optimo" else "fallo")
+    if tipo != "optimo" and nota_fallo is not None:
+        pack_fn = nota_fallo
+    else:
+        pack_fn = meta.get("ok" if tipo == "optimo" else "fallo")
     detalles = eventos_detalle
     if detalles is None and pack_fn is not None:
         detalles = _pack_detalles(episodios, pack_fn, fase_id)
@@ -983,6 +1161,10 @@ def _eval_rodillas(
             media,
             insuf,
             objetivo_texto=f"Objetivo: {rod_min:.0f}°–{rod_max:.0f}°",
+            nota_fallo=lambda v: (
+                f"{v:.0f}°",
+                f"Piernas rígidas ({v:.0f}° vs {rod_min:.0f}°–{rod_max:.0f}°)",
+            ),
         )
 
     mensaje = (
@@ -1029,6 +1211,11 @@ def _eval_codo(
         if p.get("codo_vertical")
         else f"superar los {obj:.0f}° para ganar palanca"
     )
+    consejo = (
+        f"Extiende del todo el brazo {lado_dom} hacia arriba al impactar."
+        if p.get("codo_vertical")
+        else f"Estira el brazo {lado_dom} al impactar para ganar palanca."
+    )
 
     if encogidos and media < obj:
         tipo = "alerta" if media < aceptable else "mejora"
@@ -1050,7 +1237,9 @@ def _eval_codo(
             media,
             encogidos,
             objetivo_texto=f"Objetivo: >{obj:.0f}°",
+            consejo_corto=consejo,
             zona_corporal=str(p.get("zona_brazo") or "brazo_der"),
+            nota_fallo=lambda v: (f"{v:.0f}°", f"Brazo encogido ({v:.0f}° vs >{obj:.0f}°)"),
         )
 
     mensaje = (
@@ -1066,6 +1255,7 @@ def _eval_codo(
         media,
         picos,
         objetivo_texto=f"Objetivo: >{obj:.0f}°",
+        consejo_corto=consejo,
         zona_corporal=str(p.get("zona_brazo") or "brazo_der"),
     )
 
@@ -1123,6 +1313,7 @@ def _eval_spacing(
             media,
             pegados,
             objetivo_texto=f"Separar muñeca del torso (>{sp_min:.2f}×)",
+            nota_fallo=lambda v: (f"{v:.2f}×", f"Spacing corto ({v:.2f}× vs >{sp_min:.2f}×)"),
         )
 
     mensaje = (
@@ -1186,7 +1377,7 @@ def _eval_apertura(
         )
 
     mensaje = (
-        f"En la {fase_n} el hombro derecho abre {media:.0f}° de media, con un "
+        f"En la {fase_n} el hombro {p.get('lado_dom') or 'derecho'} abre {media:.0f}° de media, con un "
         f"arco amplio para acelerar la raqueta. "
         f"Se observa {_citar_segundos([_segundos(t) for t, _ in armados])}."
     )
@@ -1396,8 +1587,20 @@ def _eval_terminacion(
     golpes_fases: list[dict] | None,
     perfil: dict | None = None,
 ) -> dict | None:
-    """Comprueba el follow-through según el estilo de derecha del jugador."""
+    """Comprueba el follow-through; la zona marcada es el brazo dominante."""
     p = perfil or _perfil_golpe(TIPO_DERECHA)
+    evaluacion = _eval_terminacion_estilo(frames, golpes_fases, p)
+    if evaluacion is not None:
+        evaluacion["zona_corporal"] = str(p.get("zona_brazo") or "brazo_der")
+    return evaluacion
+
+
+def _eval_terminacion_estilo(
+    frames: list[dict] | None,
+    golpes_fases: list[dict] | None,
+    p: dict,
+) -> dict | None:
+    """Follow-through según el estilo de derecha del jugador."""
     if not p.get("eval_terminacion", True):
         return None
     stats = _stats_terminacion(frames, golpes_fases, p)
@@ -1532,6 +1735,48 @@ def _texto_adaptacion(
     )
 
 
+NOMBRE_GOLPE = {
+    TIPO_DERECHA: ("derecha", "derechas"),
+    TIPO_SAQUE: ("saque", "saques"),
+    TIPO_REMATE: ("remate", "remates"),
+    TIPO_REVES_2: ("revés a dos manos", "reveses a dos manos"),
+    TIPO_REVES_1: ("revés a una mano", "reveses a una mano"),
+    TIPO_VOLEA: ("volea", "voleas"),
+    TIPO_CORTADO: ("cortado", "cortados"),
+}
+
+
+NOMBRE_ASPECTO = {
+    "apertura": "la apertura del hombro",
+    "rodilla": "la flexión de piernas",
+    "base": "la base de apoyo",
+    "codo": "la extensión del brazo",
+    "spacing": "la separación de la bola",
+    "tronco": "la postura del tronco",
+    "terminacion": "la terminación",
+}
+
+
+def _etiqueta_golpes(conteo: dict[str, int]) -> str:
+    """'2 derechas y 1 revés a dos manos'."""
+    partes = []
+    for tipo, n in conteo.items():
+        singular, plural = NOMBRE_GOLPE.get(tipo, (tipo.lower(), tipo.lower()))
+        partes.append(f"{n} {singular if n == 1 else plural}")
+    if len(partes) == 1:
+        return partes[0]
+    return f"{', '.join(partes[:-1])} y {partes[-1]}"
+
+
+def _puntuacion(evaluaciones: list[dict]) -> int:
+    """100 menos la penalización de cada aspecto según su gravedad."""
+    penalizacion = sum(PENALIZACION.get(ev["tipo"], 8) for ev in evaluaciones)
+    puntuacion = max(0, min(100, 100 - penalizacion))
+    if evaluaciones and all(ev["tipo"] == "optimo" for ev in evaluaciones):
+        puntuacion = max(puntuacion, 92)
+    return int(puntuacion)
+
+
 def _resumen_general(
     evaluaciones: list[dict],
     tipo_golpe: str = TIPO_DERECHA,
@@ -1539,7 +1784,15 @@ def _resumen_general(
     lateralidad: str = LAT_DIESTRO,
     estilo_reves: str = ESTILO_REVES_2,
     estilo_derecha: str = ESTILO_DERECHA_TRAD,
+    puntuacion: int | None = None,
+    etiqueta: str | None = None,
+    sin_datos: list[str] | None = None,
 ) -> dict:
+    """
+    puntuacion: nota ya calculada (con varios tipos de golpe, la media de cada
+    uno); etiqueta: qué se analizó ('2 derechas y 1 revés a dos manos');
+    sin_datos: aspectos que no se pudieron valorar (articulaciones poco visibles).
+    """
     adaptacion = _texto_adaptacion(lateralidad, estilo_reves, estilo_derecha)
     extra = {
         "tipo_golpe": tipo_golpe,
@@ -1559,10 +1812,8 @@ def _resumen_general(
             **extra,
         }
 
-    penalizacion = sum(PENALIZACION.get(ev["tipo"], 8) for ev in evaluaciones)
-    puntuacion = max(0, min(100, 100 - penalizacion))
-    if all(ev["tipo"] == "optimo" for ev in evaluaciones):
-        puntuacion = max(puntuacion, 92)
+    if puntuacion is None:
+        puntuacion = _puntuacion(evaluaciones)
 
     if puntuacion >= 85:
         tipo = "optimo"
@@ -1575,14 +1826,18 @@ def _resumen_general(
     a_corregir = [ev for ev in evaluaciones if ev["tipo"] != "optimo"]
     a_corregir.sort(key=lambda ev: PENALIZACION.get(ev["tipo"], 0), reverse=True)
     principal = a_corregir[0]["titulo"] if a_corregir else "Ninguno: el clip está equilibrado"
-    etiqueta = tipo_golpe
+    etiqueta = etiqueta or tipo_golpe
 
     if tipo == "optimo":
         mensaje = (
             f"{adaptacion}. Análisis de {etiqueta}: valoración biomecánica de {puntuacion}/100. "
             f"El clip muestra un patrón sólido: "
             f"{', '.join(fuertes) or 'los apoyos y el swing están coordinados'}. "
-            "Sigue insistiendo en esa repetición."
+            + (
+                f"Solo te queda pulir {principal.lower()}."
+                if a_corregir
+                else "Sigue insistiendo en esa repetición."
+            )
         )
     elif a_corregir:
         mensaje = (
@@ -1596,6 +1851,21 @@ def _resumen_general(
             "en este clip."
         )
 
+    sin_datos = list(sin_datos or [])
+    if sin_datos:
+        # Sin esto, una nota alta con medio análisis parecería un golpe perfecto
+        aspectos = [NOMBRE_ASPECTO.get(c, c) for c in sin_datos]
+        lista = (
+            aspectos[0]
+            if len(aspectos) == 1
+            else f"{', '.join(aspectos[:-1])} y {aspectos[-1]}"
+        )
+        mensaje += (
+            f" No se ha podido valorar {lista}: esas articulaciones no se veían con "
+            "claridad en el vídeo (fuera de plano o tapadas). Graba al jugador entero "
+            "para un análisis completo."
+        )
+
     return {
         "puntuacion": int(puntuacion),
         "tipo": tipo,
@@ -1603,6 +1873,7 @@ def _resumen_general(
         "mensaje": mensaje,
         "puntos_fuertes": fuertes,
         "aspecto_principal": principal,
+        "sin_datos": sin_datos,
         **extra,
     }
 
@@ -1614,9 +1885,11 @@ def generar_feedback(
     estilo_reves: str = ESTILO_REVES_2,
     estilo_derecha: str = ESTILO_DERECHA_TRAD,
     lateralidad: str = LAT_DIESTRO,
+    tipo_forzado: str | None = None,
 ) -> dict:
     """
     Evalúa las métricas del vídeo y devuelve un análisis de entrenador agrupado.
+    tipo_forzado: tipo de golpe indicado por el jugador (sin clasificar).
     """
     estilo_r = _normalizar_estilo_reves(estilo_reves)
     estilo_d = _normalizar_estilo_derecha(estilo_derecha)
@@ -1646,25 +1919,46 @@ def generar_feedback(
     if golpes_fases is None and frames:
         _, golpes_fases = anotar_fases_golpe(frames, lateralidad=lat)
 
-    tipo_golpe = clasificar_tipo_golpe_clip(
-        frames, golpes_fases, estilo_reves=estilo_r, lateralidad=lat
+    golpes = (None if tipo_forzado else _golpes_de_fases(golpes_fases)) or clasificar_golpes(
+        frames, golpes_fases, estilo_reves=estilo_r, lateralidad=lat, tipo_forzado=tipo_forzado
     )
-    perfil = _perfil_golpe(tipo_golpe, estilo_derecha=estilo_d, lateralidad=lat)
-    print(f"{adaptacion} -> reglas de {tipo_golpe}")
+    tipo_golpe = tipo_principal(golpes) if golpes else (tipo_forzado or TIPO_DERECHA)
 
-    evaluaciones = [
-        ev
-        for ev in (
-            _eval_apertura(filas, golpes_fases, perfil),
-            _eval_rodillas(filas, golpes_fases, perfil),
-            _eval_base(filas, golpes_fases),
-            _eval_codo(filas, golpes_fases, perfil),
-            _eval_spacing(filas, golpes_fases, perfil),
-            _eval_tronco(filas, golpes_fases),
-            _eval_terminacion(frames, golpes_fases, perfil),
+    # Cada tipo de golpe con sus reglas, evaluando solo sus golpes
+    grupos: dict[str, list[float]] = {}
+    for t_imp, tipo in golpes:
+        grupos.setdefault(tipo, []).append(t_imp)
+    if not grupos:
+        grupos = {tipo_golpe: []}
+    varios_tipos = len(grupos) > 1
+
+    evaluaciones: list[dict] = []
+    notas: list[tuple[int, int]] = []
+    sin_datos: list[str] = []  # Aspectos sin datos fiables en ningún golpe
+    valoradas: set[str] = set()
+    # De frente a la cámara, "cruzar hacia el lado no dominante" va al revés en la imagen
+    invertir_x = orientacion_camara(frames) == -1
+    for tipo, tiempos in grupos.items():
+        fases_tipo = (
+            [g for g in golpes_fases or [] if g.get("t_impacto") in tiempos]
+            if tiempos
+            else golpes_fases
         )
-        if ev is not None
-    ]
+        perfil = _perfil_golpe(tipo, estilo_derecha=estilo_d, lateralidad=lat)
+        if invertir_x:
+            perfil["dir_x"] = -int(perfil["dir_x"])
+        print(f"{adaptacion} -> reglas de {tipo} ({len(tiempos)} golpe(s))")
+        evs, faltan = _evaluar_golpe(filas, frames, fases_tipo, perfil)
+        valoradas.update(ev["categoria"] for ev in evs)
+        sin_datos.extend(c for c in faltan if c not in sin_datos)
+        for ev in evs:
+            ev["tipo_golpe"] = tipo
+            if varios_tipos:
+                ev["titulo"] = f"{ev['titulo']} · {tipo}"
+        if evs:
+            evaluaciones.extend(evs)
+            notas.append((max(1, len(tiempos)), _puntuacion(evs)))
+
     if not evaluaciones:
         return {
             "resumen_general": {
@@ -1683,20 +1977,68 @@ def generar_feedback(
             **extra,
         }
 
+    # Nota del clip: media de la de cada tipo de golpe, según cuántos golpes tiene
+    total = sum(n for n, _ in notas)
+    puntuacion = round(sum(n * nota for n, nota in notas) / total)
+    etiqueta = (
+        _etiqueta_golpes({tipo: len(tiempos) for tipo, tiempos in grupos.items()})
+        if varios_tipos
+        else None
+    )
     resumen = _resumen_general(
         evaluaciones,
         tipo_golpe,
         lateralidad=lat,
         estilo_reves=estilo_r,
         estilo_derecha=estilo_d,
+        puntuacion=puntuacion,
+        etiqueta=etiqueta,
+        sin_datos=[c for c in sin_datos if c not in valoradas],
     )
     return {
         "resumen_general": resumen,
         "evaluaciones": evaluaciones,
         "golpes_fases": golpes_fases or [],
+        "golpes": [{"t": round(t, 4), "tipo_golpe": tipo} for t, tipo in golpes],
         "tipo_golpe": tipo_golpe,
         **extra,
     }
+
+
+def _evaluar_golpe(
+    filas: list[dict[str, float | None]],
+    frames: list[dict] | None,
+    golpes_fases: list[dict] | None,
+    perfil: dict,
+) -> tuple[list[dict], list[str]]:
+    """
+    Reglas biomecánicas de un tipo de golpe sobre las fases de sus golpes.
+    Devuelve (evaluaciones, categorías que tocaba valorar pero sin datos fiables).
+    """
+    reglas = {
+        "apertura": (perfil.get("eval_apertura", True), lambda: _eval_apertura(filas, golpes_fases, perfil)),
+        "rodilla": (perfil.get("eval_rodilla", True), lambda: _eval_rodillas(filas, golpes_fases, perfil)),
+        "base": (True, lambda: _eval_base(filas, golpes_fases)),
+        "codo": (perfil.get("eval_codo", True), lambda: _eval_codo(filas, golpes_fases, perfil)),
+        "spacing": (perfil.get("eval_spacing", True), lambda: _eval_spacing(filas, golpes_fases, perfil)),
+        "tronco": (True, lambda: _eval_tronco(filas, golpes_fases)),
+        # Sin esqueletos (solo el CSV) no se puede mirar la terminación
+        "terminacion": (
+            perfil.get("eval_terminacion", True) and bool(frames),
+            lambda: _eval_terminacion(frames, golpes_fases, perfil),
+        ),
+    }
+    evaluaciones: list[dict] = []
+    sin_datos: list[str] = []
+    for categoria, (aplica, evaluar) in reglas.items():
+        if not aplica:
+            continue
+        ev = evaluar()
+        if ev is None:
+            sin_datos.append(categoria)
+        else:
+            evaluaciones.append(ev)
+    return evaluaciones, sin_datos
 
 
 generar_feedback_biomecanico = generar_feedback

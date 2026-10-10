@@ -23,6 +23,8 @@ export type GolpeFase = {
   fase: string;
   fase_label: string;
   t_impacto?: number;
+  /** Tipo de ese golpe concreto (en un clip puede haber derechas y reveses). */
+  tipo_golpe?: string;
 };
 
 export type PoseTracks = {

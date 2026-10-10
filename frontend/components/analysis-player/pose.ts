@@ -103,6 +103,28 @@ export function lookupFase(
   return { fase: "recuperacion", fase_label: "Desplazamiento" };
 }
 
+/**
+ * Tipo del golpe más cercano a `time`: en un clip puede haber derechas y reveses.
+ * Los análisis antiguos no lo traen por golpe y se usa el del clip.
+ */
+export function tipoGolpeEn(
+  tracks: PoseTracks | null,
+  time: number,
+  porDefecto: string | null,
+): string | null {
+  let tipo = porDefecto;
+  let distancia = Infinity;
+  for (const golpe of tracks?.golpes_fases ?? []) {
+    if (!golpe.tipo_golpe || golpe.t_impacto == null) continue;
+    const d = Math.abs(golpe.t_impacto - time);
+    if (d < distancia) {
+      distancia = d;
+      tipo = golpe.tipo_golpe;
+    }
+  }
+  return tipo;
+}
+
 export function angleDeg(p1: PoseLandmark, p2: PoseLandmark, p3: PoseLandmark): number {
   const rad =
     Math.atan2(p3[1] - p2[1], p3[0] - p2[0]) -
