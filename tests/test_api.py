@@ -153,6 +153,18 @@ def test_el_tipo_de_golpe_elegido_llega_al_motor(cliente, enviado, esperado):
     assert manifest["tipo_golpe_elegido"] == esperado
 
 
+@pytest.mark.parametrize(("enviado", "esperado"), [(None, "recto"), ("flexionado", "flexionado"), ("raro", "recto")])
+def test_el_codo_de_la_derecha_llega_al_motor(cliente, enviado, esperado):
+    llamadas_motor.clear()
+    datos = {"codo_derecha": enviado} if enviado is not None else None
+    cliente.cookies.clear()
+    respuesta = cliente.post(
+        "/analizar-video", files={"file": ("golpe.mp4", VIDEO_FALSO, "video/mp4")}, data=datos
+    )
+    esperar(cliente, respuesta.json()["job_id"])
+    assert llamadas_motor[-1]["codo_derecha"] == esperado
+
+
 def test_la_subida_acepta_la_ruta_con_barra_final(cliente):
     # La que usaban las versiones anteriores del frontend
     assert subir(cliente, ruta="/analizar-video/").status_code == 202

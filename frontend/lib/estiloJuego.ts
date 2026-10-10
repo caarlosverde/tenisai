@@ -27,3 +27,14 @@ export function normalizarEstiloDerecha(value: unknown): EstiloDerecha {
     ? (value as EstiloDerecha)
     : ESTILO_DERECHA_DEFAULT;
 }
+
+/** Codo en el impacto de la derecha: brazo recto o «doble flexión». */
+export const CODO_DERECHA_VALORES = ["recto", "flexionado"] as const;
+export type CodoDerecha = (typeof CODO_DERECHA_VALORES)[number];
+export const CODO_DERECHA_DEFAULT: CodoDerecha = "recto";
+
+export function normalizarCodoDerecha(value: unknown): CodoDerecha {
+  return CODO_DERECHA_VALORES.includes(value as CodoDerecha)
+    ? (value as CodoDerecha)
+    : CODO_DERECHA_DEFAULT;
+}

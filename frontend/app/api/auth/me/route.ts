@@ -20,6 +20,7 @@ const USER_SELECT = {
   lateralidad: true,
   estiloReves: true,
   estiloDerecha: true,
+  codoDerecha: true,
   createdAt: true,
   perfilPublico: true,
   ciudad: true,
@@ -56,6 +57,7 @@ type PatchBody = {
   lateralidad?: string;
   estiloReves?: string;
   estiloDerecha?: string;
+  codoDerecha?: string;
   nombre?: string;
   apellidos?: string;
   edad?: number | string;
@@ -76,6 +78,7 @@ export async function PATCH(request: Request) {
       lateralidad?: string;
       estiloReves?: string;
       estiloDerecha?: string;
+      codoDerecha?: string;
       nombre?: string;
       apellidos?: string;
       edad?: number;
@@ -111,6 +114,16 @@ export async function PATCH(request: Request) {
         );
       }
       data.estiloDerecha = body.estiloDerecha;
+    }
+
+    if (body.codoDerecha !== undefined) {
+      if (!["recto", "flexionado"].includes(body.codoDerecha)) {
+        return NextResponse.json(
+          { error: "codoDerecha debe ser 'recto' o 'flexionado'." },
+          { status: 400 },
+        );
+      }
+      data.codoDerecha = body.codoDerecha;
     }
 
     const personales = validarDatosPersonales(body, false);

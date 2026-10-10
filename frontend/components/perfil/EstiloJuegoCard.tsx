@@ -5,9 +5,11 @@ import { flushSync } from "react-dom";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
+  type CodoDerecha,
   type EstiloDerecha,
   type EstiloReves,
   type Lateralidad,
+  normalizarCodoDerecha,
   normalizarEstiloDerecha,
   normalizarEstiloReves,
   normalizarLateralidad,
@@ -19,6 +21,7 @@ type Estilo = {
   lateralidad: Lateralidad;
   estiloReves: EstiloReves;
   estiloDerecha: EstiloDerecha;
+  codoDerecha: CodoDerecha;
 };
 
 type Opcion<V extends string> = { value: V; title: string; desc: string };
@@ -71,6 +74,21 @@ const PREGUNTAS: {
       },
     ],
   },
+  codoDerecha: {
+    titulo: "Brazo en la derecha",
+    opciones: [
+      {
+        value: "recto",
+        title: "Brazo recto",
+        desc: "El brazo llega casi estirado al impacto (Federer, Nadal). Se pide pasar de 155°.",
+      },
+      {
+        value: "flexionado",
+        title: "Codo flexionado (doble flexión)",
+        desc: "El codo va doblado al golpear (Djokovic, Sinner). Solo se avisa si el brazo va encogido.",
+      },
+    ],
+  },
 };
 
 function estiloDe(user: ProfileUser): Estilo {
@@ -78,6 +96,7 @@ function estiloDe(user: ProfileUser): Estilo {
     lateralidad: normalizarLateralidad(user.lateralidad),
     estiloReves: normalizarEstiloReves(user.estiloReves),
     estiloDerecha: normalizarEstiloDerecha(user.estiloDerecha),
+    codoDerecha: normalizarCodoDerecha(user.codoDerecha),
   };
 }
 

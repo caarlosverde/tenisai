@@ -25,6 +25,7 @@ export async function GET() {
         lateralidad: true,
         estiloReves: true,
         estiloDerecha: true,
+        codoDerecha: true,
         privacidadAceptadaEn: true,
         createdAt: true,
         perfilPublico: true,

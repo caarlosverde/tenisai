@@ -25,7 +25,8 @@ después.
 - **Análisis biomecánico**: esqueleto con MediaPipe, pelota con YOLOv8, ángulos de
   codo y rodillas, apertura del hombro, distancia al golpe (*spacing*), base de apoyo e
   inclinación del tronco, con reglas adaptadas al tipo de golpe, la lateralidad y el
-  estilo de juego (revés a una o dos manos, terminación clásica o «lazo»). Cada golpe
+  estilo de juego (revés a una o dos manos, terminación clásica o «lazo», derecha con el
+  brazo recto o con el codo flexionado). Cada golpe
   del clip se clasifica por separado (teniendo en cuenta si se graba de frente o de
   espaldas), así que un vídeo con derechas y reveses evalúa cada uno con sus reglas; al
   subir el vídeo también se puede indicar qué golpe es. La base y el *spacing* se miden con las coordenadas 3D de

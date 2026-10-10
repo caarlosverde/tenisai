@@ -26,9 +26,11 @@ import {
   type ResumenGeneral,
 } from "@/lib/api";
 import {
+  CODO_DERECHA_DEFAULT,
   ESTILO_DERECHA_DEFAULT,
   ESTILO_REVES_DEFAULT,
   LATERALIDAD_DEFAULT,
+  normalizarCodoDerecha,
   normalizarEstiloDerecha,
   normalizarEstiloReves,
   normalizarLateralidad,
@@ -187,6 +189,7 @@ export default function HomePage() {
       let estiloReves = ESTILO_REVES_DEFAULT;
       let estiloDerecha = ESTILO_DERECHA_DEFAULT;
       let lateralidad = LATERALIDAD_DEFAULT;
+      let codoDerecha = CODO_DERECHA_DEFAULT;
       try {
         const meRes = isLoggedIn
           ? await fetch("/api/auth/me", { credentials: "include" })
@@ -197,11 +200,13 @@ export default function HomePage() {
               estiloReves?: string;
               estiloDerecha?: string;
               lateralidad?: string;
+              codoDerecha?: string;
             };
           };
           estiloReves = normalizarEstiloReves(meData.user?.estiloReves);
           estiloDerecha = normalizarEstiloDerecha(meData.user?.estiloDerecha);
           lateralidad = normalizarLateralidad(meData.user?.lateralidad);
+          codoDerecha = normalizarCodoDerecha(meData.user?.codoDerecha);
         }
       } catch {
         // Anónimo: el backend aplica los mismos valores por defecto
@@ -209,6 +214,7 @@ export default function HomePage() {
       formData.append("estilo_reves", estiloReves);
       formData.append("estilo_derecha", estiloDerecha);
       formData.append("lateralidad", lateralidad);
+      formData.append("codo_derecha", codoDerecha);
       formData.append("tipo_golpe", tipoElegido);
 
       let response: Response;

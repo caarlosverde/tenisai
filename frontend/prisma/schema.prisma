@@ -20,6 +20,8 @@ model User {
   lateralidad          String     @default("diestro")
   estiloReves          String     @default("2_manos")
   estiloDerecha        String     @default("tradicional")
+  // Codo en el impacto de la derecha: "recto" o "flexionado" (doble flexión)
+  codoDerecha          String     @default("recto")
   // Momento en que aceptó la política de privacidad (RGPD: prueba del consentimiento)
   privacidadAceptadaEn DateTime?
   // Va dentro de cada sesión: al cambiar la contraseña se incrementa y las

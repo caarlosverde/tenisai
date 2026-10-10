@@ -977,6 +977,7 @@ def procesar_video(
     estilo_derecha: str = "tradicional",
     lateralidad: str = "diestro",
     tipo_golpe: str = "auto",
+    codo_derecha: str = "recto",
 ) -> tuple[Path, Path, dict]:
     """
     Procesa un vídeo de tenis: pose, ángulos de codo/rodillas, vídeo anotado y CSV.
@@ -991,6 +992,7 @@ def procesar_video(
                      para alimentar la barra de progreso de la API.
         tipo_golpe: "auto" para clasificar cada golpe, o el que indica el jugador
                     ("derecha", "reves", "saque", "volea", "remate", "cortado").
+        codo_derecha: "recto" o "flexionado" (doble flexión) en la derecha.
 
     Returns:
         (ruta_video_anotado, ruta_csv_metricas, analisis_entrenador)
@@ -1423,6 +1425,7 @@ def procesar_video(
         estilo_derecha=estilo_derecha,
         lateralidad=lateralidad,
         tipo_forzado=tipo_forzado,
+        codo_derecha=codo_derecha,
     )
     evaluaciones = feedback.get("evaluaciones", [])
     print(f"Feedback biomecánico: {len(evaluaciones)} evaluaciones agrupadas")

@@ -8,6 +8,7 @@ export type ProfileUser = {
   peso: number;
   estiloReves?: string;
   estiloDerecha?: string;
+  codoDerecha?: string;
   lateralidad?: string;
   createdAt: string;
   // Perfil de jugador de la comunidad

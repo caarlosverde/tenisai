@@ -369,6 +369,7 @@ def _ejecutar_analisis(job_id: str, trabajo: dict) -> None:
             estilo_derecha=trabajo["estilo_derecha"],
             lateralidad=trabajo["lateralidad"],
             tipo_golpe=trabajo.get("tipo_golpe_elegido", "auto"),
+            codo_derecha=trabajo.get("codo_derecha", "recto"),
         )
 
         datos = feedback if isinstance(feedback, dict) else {"evaluaciones": feedback}
@@ -391,6 +392,7 @@ def _ejecutar_analisis(job_id: str, trabajo: dict) -> None:
             "lateralidad": datos.get("lateralidad", trabajo["lateralidad"]),
             "estilo_reves": datos.get("estilo_reves", trabajo["estilo_reves"]),
             "estilo_derecha": datos.get("estilo_derecha", trabajo["estilo_derecha"]),
+            "codo_derecha": datos.get("codo_derecha", trabajo.get("codo_derecha", "recto")),
             "adaptacion": datos.get("adaptacion"),
         }
         # Primero a disco: cuando el frontend vea "completado", /resultado ya responde
@@ -560,6 +562,7 @@ async def analizar_video(
     estilo_derecha: str = Form("tradicional"),
     lateralidad: str = Form("diestro"),
     tipo_golpe: str = Form("auto"),
+    codo_derecha: str = Form("recto"),
 ) -> dict:
     """Recibe un vídeo, lo pone en la cola y devuelve su job_id."""
     llamante = _identificar_llamante(request)
@@ -578,6 +581,9 @@ async def analizar_video(
     lat = (lateralidad or "").strip().lower()
     if lat not in ("diestro", "zurdo"):
         lat = "diestro"
+    codo = (codo_derecha or "").strip().lower()
+    if codo not in ("recto", "flexionado"):
+        codo = "recto"
 
     nombre = file.filename or "video.mp4"
     extension = Path(nombre).suffix.lower()
@@ -619,6 +625,7 @@ async def analizar_video(
             "estilo_derecha": derecha,
             "lateralidad": lat,
             "tipo_golpe_elegido": eleccion_golpe,
+            "codo_derecha": codo,
             "_clave": llamante.clave,
             "_usuario_id": llamante.usuario_id,
         }

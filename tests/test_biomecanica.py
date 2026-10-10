@@ -392,6 +392,28 @@ def test_cada_golpe_cuenta_en_la_nota(tmp_path):
     assert _evaluacion(bio.generar_feedback(_escribir_csv(tmp_path / "n.csv")), "codo")["nota"] == 100
 
 
+def test_derecha_con_doble_flexion_no_penaliza_el_codo_doblado(tmp_path):
+    ruta = _escribir_csv(tmp_path / "m.csv", codo_der_max=120)  # como Sinner (119°)
+
+    recto = _evaluacion(bio.generar_feedback(ruta, codo_derecha="recto"), "codo")
+    flexionado_resultado = bio.generar_feedback(ruta, codo_derecha="flexionado")
+    flexionado = _evaluacion(flexionado_resultado, "codo")
+
+    assert recto["tipo"] == "alerta"
+    assert flexionado["tipo"] == "optimo"
+    assert "codo flexionado" in flexionado["titulo"]
+    assert "codo flexionado" in flexionado_resultado["adaptacion"]
+    # Un brazo encogido sigue siendo un fallo con la doble flexión
+    filas = [{bio.COLUMNA_TIMESTAMP: t, bio.COL_CODO_DER: 80.0 + (t % 300) / 100} for t in range(0, 3000, 33)]
+    perfil = bio._perfil_golpe(bio.TIPO_DERECHA, codo_derecha="flexionado")
+    assert bio._eval_codo(filas, None, perfil)["tipo"] == "alerta"
+
+
+def test_la_doble_flexion_solo_cambia_la_derecha():
+    assert bio._perfil_golpe(bio.TIPO_SAQUE, codo_derecha="flexionado")["codo_objetivo"] == 162.0
+    assert bio._perfil_golpe(bio.TIPO_DERECHA, codo_derecha="otro")["codo_flexionado"] is False
+
+
 def test_el_reves_no_usa_la_apertura_de_la_derecha():
     assert bio._perfil_golpe(bio.TIPO_REVES_2)["eval_apertura"] is False
     assert bio._perfil_golpe(bio.TIPO_REVES_1)["eval_apertura"] is False

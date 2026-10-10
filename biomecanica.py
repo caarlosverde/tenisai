@@ -118,6 +118,14 @@ ESTILO_REVES_1 = "1_mano"
 ESTILO_REVES_2 = "2_manos"
 ESTILO_DERECHA_TRAD = "tradicional"
 ESTILO_DERECHA_NADAL = "nadal"
+# Codo en el impacto de la derecha: brazo recto (Federer, Nadal) o con el codo
+# flexionado, la «doble flexión» (Djokovic, Sinner: 119° en los vídeos de prueba)
+CODO_DERECHA_RECTO = "recto"
+CODO_DERECHA_FLEXIONADO = "flexionado"
+# Con el codo flexionado solo se avisa si el brazo va claramente encogido; la
+# literatura no da un valor de referencia fiable para esta técnica
+CODO_FLEXIONADO_OBJETIVO = 100.0
+CODO_FLEXIONADO_ACEPTABLE = 85.0
 LAT_DIESTRO = "diestro"
 LAT_ZURDO = "zurdo"
 
@@ -501,6 +509,11 @@ def _normalizar_estilo_derecha(valor: str | None) -> str:
     return v if v in (ESTILO_DERECHA_TRAD, ESTILO_DERECHA_NADAL) else ESTILO_DERECHA_TRAD
 
 
+def _normalizar_codo_derecha(valor: str | None) -> str:
+    v = (valor or "").strip().lower()
+    return v if v in (CODO_DERECHA_RECTO, CODO_DERECHA_FLEXIONADO) else CODO_DERECHA_RECTO
+
+
 def _estado_manos(
     muneca_der: tuple[float, float] | None,
     muneca_izq: tuple[float, float] | None,
@@ -867,6 +880,7 @@ def _perfil_golpe(
     tipo: str,
     estilo_derecha: str = ESTILO_DERECHA_TRAD,
     lateralidad: str = LAT_DIESTRO,
+    codo_derecha: str = CODO_DERECHA_RECTO,
 ) -> dict:
     """Ajusta qué reglas se evalúan y con qué umbrales según el golpe."""
     estilo_d = _normalizar_estilo_derecha(estilo_derecha)
@@ -874,6 +888,7 @@ def _perfil_golpe(
     perfil = {
         "tipo": tipo,
         "estilo_derecha": estilo_d,
+        "codo_flexionado": False,
         "lateralidad": lado["valor"],
         "dir_x": lado["dir_x"],
         "etiqueta_lat": lado["etiqueta"],
@@ -932,6 +947,12 @@ def _perfil_golpe(
         perfil["spacing_optimo"] = 1.10
     elif tipo == TIPO_CORTADO:
         perfil["eval_terminacion"] = False
+    elif tipo == TIPO_DERECHA and _normalizar_codo_derecha(codo_derecha) == CODO_DERECHA_FLEXIONADO:
+        # Doble flexión: el codo doblado en el impacto es la técnica, no un fallo
+        perfil["codo_flexionado"] = True
+        perfil["codo_objetivo"] = CODO_FLEXIONADO_OBJETIVO
+        perfil["codo_aceptable"] = CODO_FLEXIONADO_ACEPTABLE
+        perfil["codo_titulo"] = "Brazo al golpear (codo flexionado)"
 
     if tipo in (TIPO_REVES_1, TIPO_REVES_2):
         # La apertura del brazo (objetivo de 95°) es de la derecha: en el revés el
@@ -1344,16 +1365,18 @@ def _eval_codo(
     encogidos = [(t, v) for t, v in picos if v < obj]
     buenos = [(t, v) for t, v in picos if v >= obj]
     fase_n = FASE_NOMBRE["impacto"]
-    meta = (
-        f"extender el brazo {lado_dom} hacia arriba"
-        if p.get("codo_vertical")
-        else f"superar los {obj:.0f}° para ganar palanca"
-    )
-    consejo = (
-        f"Extiende del todo el brazo {lado_dom} hacia arriba al impactar."
-        if p.get("codo_vertical")
-        else f"Estira el brazo {lado_dom} al impactar para ganar palanca."
-    )
+    if p.get("codo_vertical"):
+        meta = f"extender el brazo {lado_dom} hacia arriba"
+        consejo = f"Extiende del todo el brazo {lado_dom} hacia arriba al impactar."
+    elif p.get("codo_flexionado"):
+        meta = (
+            f"no bajar de {obj:.0f}°: con la doble flexión el codo va doblado, "
+            "pero sin encoger el brazo"
+        )
+        consejo = f"Mantén el codo {lado_dom} doblado pero sin encoger el brazo: deja espacio a la bola."
+    else:
+        meta = f"superar los {obj:.0f}° para ganar palanca"
+        consejo = f"Estira el brazo {lado_dom} al impactar para ganar palanca."
 
     if encogidos and media < obj:
         tipo = "alerta" if media < aceptable else "mejora"
@@ -1890,13 +1913,19 @@ def _texto_adaptacion(
     lateralidad: str,
     estilo_reves: str,
     estilo_derecha: str,
+    codo_derecha: str = CODO_DERECHA_RECTO,
 ) -> str:
     lado = _lado(lateralidad)
     estilo = "Lazo" if estilo_derecha == ESTILO_DERECHA_NADAL else "clásico"
     grip = "revés a 1 mano" if estilo_reves == ESTILO_REVES_1 else "revés a 2 manos"
+    codo = (
+        ", derecha con el codo flexionado"
+        if _normalizar_codo_derecha(codo_derecha) == CODO_DERECHA_FLEXIONADO
+        else ""
+    )
     return (
         f"Análisis adaptado para jugador {lado['etiqueta']}, "
-        f"estilo {estilo}, {grip}"
+        f"estilo {estilo}, {grip}{codo}"
     )
 
 
@@ -1955,6 +1984,7 @@ def _resumen_general(
     lateralidad: str = LAT_DIESTRO,
     estilo_reves: str = ESTILO_REVES_2,
     estilo_derecha: str = ESTILO_DERECHA_TRAD,
+    codo_derecha: str = CODO_DERECHA_RECTO,
     puntuacion: int | None = None,
     etiqueta: str | None = None,
     sin_datos: list[str] | None = None,
@@ -1964,12 +1994,13 @@ def _resumen_general(
     uno); etiqueta: qué se analizó ('2 derechas y 1 revés a dos manos');
     sin_datos: aspectos que no se pudieron valorar (articulaciones poco visibles).
     """
-    adaptacion = _texto_adaptacion(lateralidad, estilo_reves, estilo_derecha)
+    adaptacion = _texto_adaptacion(lateralidad, estilo_reves, estilo_derecha, codo_derecha)
     extra = {
         "tipo_golpe": tipo_golpe,
         "lateralidad": _normalizar_lateralidad(lateralidad),
         "estilo_reves": _normalizar_estilo_reves(estilo_reves),
         "estilo_derecha": _normalizar_estilo_derecha(estilo_derecha),
+        "codo_derecha": _normalizar_codo_derecha(codo_derecha),
         "adaptacion": adaptacion,
     }
     if not evaluaciones:
@@ -2057,18 +2088,22 @@ def generar_feedback(
     estilo_derecha: str = ESTILO_DERECHA_TRAD,
     lateralidad: str = LAT_DIESTRO,
     tipo_forzado: str | None = None,
+    codo_derecha: str = CODO_DERECHA_RECTO,
 ) -> dict:
     """
     Evalúa las métricas del vídeo y devuelve un análisis de entrenador agrupado.
     tipo_forzado: tipo de golpe indicado por el jugador (sin clasificar).
+    codo_derecha: "recto" o "flexionado" (doble flexión) en el impacto de la derecha.
     """
     estilo_r = _normalizar_estilo_reves(estilo_reves)
     estilo_d = _normalizar_estilo_derecha(estilo_derecha)
+    codo_d = _normalizar_codo_derecha(codo_derecha)
     lat = _normalizar_lateralidad(lateralidad)
-    adaptacion = _texto_adaptacion(lat, estilo_r, estilo_d)
+    adaptacion = _texto_adaptacion(lat, estilo_r, estilo_d, codo_d)
     extra = {
         "estilo_reves": estilo_r,
         "estilo_derecha": estilo_d,
+        "codo_derecha": codo_d,
         "lateralidad": lat,
         "adaptacion": adaptacion,
     }
@@ -2115,7 +2150,7 @@ def generar_feedback(
             if tiempos
             else golpes_fases
         )
-        perfil = _perfil_golpe(tipo, estilo_derecha=estilo_d, lateralidad=lat)
+        perfil = _perfil_golpe(tipo, estilo_derecha=estilo_d, lateralidad=lat, codo_derecha=codo_d)
         if invertir_x:
             perfil["dir_x"] = -int(perfil["dir_x"])
         print(f"{adaptacion} -> reglas de {tipo} ({len(tiempos)} golpe(s))")
@@ -2162,6 +2197,7 @@ def generar_feedback(
         lateralidad=lat,
         estilo_reves=estilo_r,
         estilo_derecha=estilo_d,
+        codo_derecha=codo_d,
         puntuacion=puntuacion,
         etiqueta=etiqueta,
         sin_datos=[c for c in sin_datos if c not in valoradas],
