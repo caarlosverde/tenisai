@@ -185,15 +185,22 @@ def distancia_a_eje(
     return math.sqrt(max(float(np.dot(rel, rel)) - proyeccion**2, 0.0))
 
 
-def _metricas_distancia_3d(mundo) -> dict[str, float]:
+def _metricas_3d(mundo) -> dict[str, float]:
     """
-    Base y separación de la muñeca con las coordenadas 3D de MediaPipe (en
-    metros): no cambian según desde dónde se grabe. En 2D, de perfil los
-    hombros se ven estrechos y la base sale enorme; y la muñeca por delante del
-    cuerpo apenas se separa en horizontal si la cámara está detrás.
+    Base, separación de la muñeca y giro de hombros y caderas con las coordenadas
+    3D de MediaPipe (en metros): no cambian según desde dónde se grabe. En 2D, de
+    perfil los hombros se ven estrechos y la base sale enorme; la muñeca por
+    delante del cuerpo apenas se separa en horizontal si la cámara está detrás; y
+    el giro del tronco sobre el eje vertical no se ve.
     """
     hombro_izq, hombro_der = _punto_3d(mundo[LEFT_SHOULDER]), _punto_3d(mundo[RIGHT_SHOULDER])
     cadera_izq, cadera_der = _punto_3d(mundo[LEFT_HIP]), _punto_3d(mundo[RIGHT_HIP])
+
+    def giro(izq: np.ndarray, der: np.ndarray) -> float:
+        # Orientación de la línea izquierda-derecha en el plano horizontal (x, z):
+        # su diferencia entre hombros y caderas es la separación del tronco
+        return math.degrees(math.atan2(der[2] - izq[2], der[0] - izq[0]))
+
     centro_hombros = (hombro_izq + hombro_der) / 2.0
     centro_caderas = (cadera_izq + cadera_der) / 2.0
     ancho_hombros = max(float(np.linalg.norm(hombro_izq - hombro_der)), 1e-3)
@@ -211,6 +218,8 @@ def _metricas_distancia_3d(mundo) -> dict[str, float]:
             np.linalg.norm(_punto_3d(mundo[LEFT_ANKLE]) - _punto_3d(mundo[RIGHT_ANKLE]))
         )
         / ancho_hombros,
+        "giro_hombros": giro(hombro_izq, hombro_der),
+        "giro_caderas": giro(cadera_izq, cadera_der),
     }
 
 
@@ -252,8 +261,9 @@ def extraer_metricas_pose(
     ancho_hombros = max(distancia(p_hombro_izq, p_hombro_der), 0.9 * torso, 1.0)
 
     if mundo is not None:
-        distancias = _metricas_distancia_3d(mundo)
+        distancias = _metricas_3d(mundo)
     else:
+        # El giro sobre el eje vertical no se puede medir en 2D
         eje_a, eje_b = np.array(centro_caderas), np.array(centro_hombros)
         distancias = {
             "distancia_muneca_cuerpo": distancia_a_eje(np.array(p_muneca_der), eje_a, eje_b)
@@ -261,13 +271,15 @@ def extraer_metricas_pose(
             "distancia_muneca_izq": distancia_a_eje(np.array(p_muneca_izq), eje_a, eje_b)
             / escala,
             "amplitud_base": distancia(p_tobillo_izq, p_tobillo_der) / ancho_hombros,
+            "giro_hombros": None,
+            "giro_caderas": None,
         }
 
     def visibles(*indices: int) -> bool:
         return all(_visibilidad(pose_landmarks[i]) >= min_visibilidad for i in indices)
 
-    def si_visibles(valor: float, *indices: int) -> float | None:
-        return float(valor) if visibles(*indices) else None
+    def si_visibles(valor: float | None, *indices: int) -> float | None:
+        return float(valor) if valor is not None and visibles(*indices) else None
 
     tronco = (LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_HIP, RIGHT_HIP)
     return {
@@ -307,6 +319,8 @@ def extraer_metricas_pose(
         "inclinacion_tronco": si_visibles(
             inclinacion_respecto_vertical(centro_caderas, centro_hombros), *tronco
         ),
+        "giro_hombros": si_visibles(distancias["giro_hombros"], LEFT_SHOULDER, RIGHT_SHOULDER),
+        "giro_caderas": si_visibles(distancias["giro_caderas"], LEFT_HIP, RIGHT_HIP),
         "p_codo_der": p_codo_der,
         "p_rodilla_der": p_rodilla_der,
         "p_rodilla_izq": p_rodilla_izq,
@@ -750,6 +764,23 @@ def suavizar_serie(
     return resultado
 
 
+def desenrollar_grados(valores: list[float | None]) -> list[float | None]:
+    """
+    Quita los saltos de ±360° de un ángulo que da vueltas (179° -> -179° es un
+    giro de 2°, no de 358°), por tramos sin huecos, antes de suavizarlo.
+    """
+    resultado = list(valores)
+    inicio = None
+    for i, valor in enumerate([*valores, None]):
+        if valor is not None and inicio is None:
+            inicio = i
+        elif valor is None and inicio is not None:
+            tramo = np.unwrap(np.radians(np.array(valores[inicio:i], dtype=float)))
+            resultado[inicio:i] = [float(v) for v in np.degrees(tramo)]
+            inicio = None
+    return resultado
+
+
 def _suavizar_tramo(
     valores: list[float], window_length: int, polyorder: int
 ) -> list[float]:
@@ -1026,6 +1057,12 @@ def procesar_video(
     distancias_muneca_izq: list[float | None] = []
     amplitudes_base: list[float | None] = []
     inclinaciones_tronco: list[float | None] = []
+    # Giro de hombros y caderas (3D): se guarda en el CSV para estudiarlo, pero no se
+    # evalúa. Probado con 24 golpes, la separación en el armado no distingue la buena
+    # técnica (los reveses de Sinner salen con 11-13°, por debajo de muchos
+    # aficionados) y daría consejos equivocados
+    giros_hombros: list[float | None] = []
+    giros_caderas: list[float | None] = []
     pose_tracks: list[dict] = []
 
     options = vision.PoseLandmarkerOptions(
@@ -1156,6 +1193,8 @@ def procesar_video(
                     distancias_muneca_izq.append(metricas["distancia_muneca_izq"])
                     amplitudes_base.append(metricas["amplitud_base"])
                     inclinaciones_tronco.append(metricas["inclinacion_tronco"])
+                    giros_hombros.append(metricas["giro_hombros"])
+                    giros_caderas.append(metricas["giro_caderas"])
 
                     angulos_overlay["codo"] = ema(
                         metricas["angulo_codo_der"],
@@ -1305,6 +1344,8 @@ def procesar_video(
     spacing_izq_f = suavizar_serie(distancias_muneca_izq)
     base_f = suavizar_serie(amplitudes_base)
     tronco_f = suavizar_serie(inclinaciones_tronco)
+    giro_hombros_f = suavizar_serie(desenrollar_grados(giros_hombros))
+    giro_caderas_f = suavizar_serie(desenrollar_grados(giros_caderas))
 
     with open(metrics_csv_path, mode="w", newline="", encoding="utf-8") as csv_file:
         csv_writer = csv.writer(csv_file)
@@ -1321,6 +1362,8 @@ def procesar_video(
                 "Distancia_Muneca_Izq",
                 "Amplitud_Base",
                 "Inclinacion_Tronco",
+                "Giro_Hombros",
+                "Giro_Caderas",
             ]
         )
         for fila in zip(
@@ -1335,6 +1378,8 @@ def procesar_video(
             spacing_izq_f,
             base_f,
             tronco_f,
+            giro_hombros_f,
+            giro_caderas_f,
             strict=True,
         ):
             csv_writer.writerow(fila)

@@ -892,9 +892,12 @@ def _perfil_golpe(
         perfil["codo_titulo"] = f"Extensión vertical del brazo {lado['lado_dom']}"
         perfil["codo_vertical"] = True
         if tipo == TIPO_SAQUE:
-            perfil["rodilla_insuf"] = 125.0
-            perfil["rodilla_min"] = 108.0
-            perfil["rodilla_max"] = 122.0
+            # Posición de trofeo: flexión de la rodilla delantera de 64,5 ± 9,7°
+            # (metaanálisis de 27 estudios, Frontiers in Sports and Active Living,
+            # 2024), es decir, un ángulo de rodilla de unos 106°-125°
+            perfil["rodilla_insuf"] = 128.0
+            perfil["rodilla_min"] = 106.0
+            perfil["rodilla_max"] = 125.0
         else:
             perfil["rodilla_insuf"] = 138.0
             perfil["rodilla_min"] = 118.0
