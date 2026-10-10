@@ -213,8 +213,12 @@ def _escribir_csv(
     rodilla_min: float = 120.0,
     codo_der_max: float = 162.0,
     codo_izq_max: float = 162.0,
+    codos_der: tuple[float, float, float] | None = None,
 ) -> Path:
-    """Clip de 4,5 s a 30 fps con tres golpes: flexión de rodillas y extensión de codos."""
+    """
+    Clip de 4,5 s a 30 fps con tres golpes: flexión de rodillas y extensión de codos.
+    codos_der: extensión del codo derecho en cada golpe (por defecto, la misma).
+    """
     with open(ruta, "w", newline="", encoding="utf-8") as archivo:
         escritor = csv.writer(archivo)
         escritor.writerow(COLUMNAS)
@@ -223,7 +227,10 @@ def _escribir_csv(
             carga = max(_campana(t, g - 0.2) for g in GOLPES_S)  # la carga precede al impacto
             impacto = max(_campana(t, g) for g in GOLPES_S)
             rodilla = 170 - (170 - rodilla_min) * carga
-            codo_der = 110 + (codo_der_max - 110) * impacto
+            if codos_der:
+                codo_der = 110 + max((c - 110) * _campana(t, g) for g, c in zip(GOLPES_S, codos_der))
+            else:
+                codo_der = 110 + (codo_der_max - 110) * impacto
             codo_izq = 110 + (codo_izq_max - 110) * impacto
             escritor.writerow(
                 [round(t * 1000), codo_der, codo_izq, rodilla, rodilla + 3, 90, 90, 1.1, 1.1, 1.0, 10]
@@ -327,6 +334,31 @@ def test_con_un_solo_tipo_los_titulos_no_cambian(tmp_path):
 
     assert all("·" not in ev["titulo"] for ev in resultado["evaluaciones"])
     assert len(_evaluacion(resultado, "rodilla")["timestamps"]) == 3
+
+
+def test_regularidad_entre_golpes(tmp_path):
+    regular = _evaluacion(bio.generar_feedback(_escribir_csv(tmp_path / "a.csv")), "codo")
+    assert regular["regularidad"]["regular"] is True
+    assert "con regularidad en los 3 golpes" in regular["mensaje"]
+
+    # Media buena (166°) pero un golpe a 135° y otro a 175°: gesto sin automatizar
+    irregular = _evaluacion(
+        bio.generar_feedback(_escribir_csv(tmp_path / "b.csv", codos_der=(175, 135, 175))), "codo"
+    )
+    assert irregular["regularidad"] == {"regular": False, "minimo": pytest.approx(135, abs=1),
+                                        "maximo": pytest.approx(175, abs=1), "golpes": 3}
+    assert "varía mucho de un golpe a otro" in irregular["mensaje"]
+
+
+def test_un_fallo_que_se_repite_es_un_habito(tmp_path):
+    rodilla = _evaluacion(bio.generar_feedback(_escribir_csv(tmp_path / "m.csv", rodilla_min=150)), "rodilla")
+    assert rodilla["tipo"] != "optimo"
+    assert "es un hábito del gesto" in rodilla["mensaje"]
+
+
+def test_con_menos_de_tres_golpes_no_se_valora_la_regularidad():
+    assert bio._regularidad("codo", [(0, 120.0), (2000, 170.0)]) is None
+    assert bio._regularidad("terminacion", [(0, 0.1), (2000, 0.2), (4000, 0.3)]) is None
 
 
 def test_tipo_elegido_por_el_jugador():

@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import math
 from collections import Counter
+from functools import partial
 from pathlib import Path
 
 # Umbrales heurísticos
@@ -45,6 +46,20 @@ COL_BASE = "Amplitud_Base"
 COL_TRONCO = "Inclinacion_Tronco"
 
 PENALIZACION = {"alerta": 16, "mejora": 8, "optimo": 0}
+
+# Regularidad: diferencia máxima entre golpes del mismo tipo (el más alto menos el
+# más bajo) a partir de la cual se avisa. Por encima de lo que varían los
+# profesionales de los vídeos de prueba (codo 4-13°, tronco 6-8°, base 0,03-0,26,
+# spacing 0,05-0,23) y del error de MediaPipe (unos 6° en el codo)
+REGULARIDAD_RANGO_MAX = {
+    "rodilla": 25.0,
+    "codo": 25.0,
+    "apertura": 25.0,
+    "tronco": 15.0,
+    "spacing": 0.30,
+    "base": 0.40,
+}
+REGULARIDAD_GOLPES_MIN = 3  # Con menos golpes no se puede hablar de regularidad
 
 SWING_SEP_S = 1.2
 VENTANAS_FASE = {
@@ -1102,8 +1117,15 @@ def _evaluacion(
     fase: str | None = None,
     zona_corporal: str | None = None,
     nota_fallo=None,
+    todos: list[tuple[int, float]] | None = None,
 ) -> dict:
-    """nota_fallo sustituye a la nota de META_COACH cuando el objetivo depende del golpe."""
+    """
+    nota_fallo sustituye a la nota de META_COACH cuando el objetivo depende del golpe.
+    todos: el valor de cada golpe (no solo los fallos), para valorar la regularidad.
+    """
+    regularidad = _regularidad(categoria, todos or [], es_fallo=tipo != "optimo")
+    if regularidad:
+        mensaje = f"{mensaje} {regularidad['texto']}"
     timestamps = [_segundos(t) for t, _ in episodios]
     primero_ms = episodios[0][0] if episodios else 0
     meta = META_COACH.get(categoria, {})
@@ -1134,6 +1156,53 @@ def _evaluacion(
         "fase": fase_id,
         "fase_nombre": FASE_NOMBRE.get(fase_id, ""),
         "fase_corta": FASE_CORTA.get(fase_id, ""),
+        "regularidad": (
+            {k: regularidad[k] for k in ("regular", "minimo", "maximo", "golpes")}
+            if regularidad
+            else None
+        ),
+    }
+
+
+def _regularidad(
+    categoria: str, valores: list[tuple[int, float]], *, es_fallo: bool = False
+) -> dict | None:
+    """
+    Si el aspecto se repite igual en todos los golpes o varía mucho entre ellos.
+    En tenis la regularidad importa tanto como el valor medio: un codo que unas
+    veces llega a 170° y otras a 130° es un gesto sin automatizar.
+    """
+    limite = REGULARIDAD_RANGO_MAX.get(categoria)
+    if limite is None or len(valores) < REGULARIDAD_GOLPES_MIN:
+        return None
+    numeros = [v for _, v in valores]
+    minimo, maximo = min(numeros), max(numeros)
+    angulo = categoria in ("rodilla", "codo", "apertura", "tronco")
+
+    def formato(v: float) -> str:
+        return f"{v:.0f}°" if angulo else f"{v:.2f}"
+
+    regular = maximo - minimo <= limite
+    rango = f"entre {formato(minimo)} y {formato(maximo)}"
+    if not regular:
+        texto = (
+            f"Además, varía mucho de un golpe a otro (de {formato(minimo)} a "
+            f"{formato(maximo)}): busca repetir el mismo gesto en todos."
+        )
+    elif es_fallo:
+        # Un fallo que se repite igual es un hábito: hay que entrenarlo, no es mala suerte
+        texto = (
+            f"Se repite igual en los {len(numeros)} golpes ({rango}): es un hábito del "
+            "gesto, no un golpe suelto."
+        )
+    else:
+        texto = f"Además, lo repites con regularidad en los {len(numeros)} golpes ({rango})."
+    return {
+        "regular": regular,
+        "minimo": round(minimo, 2),
+        "maximo": round(maximo, 2),
+        "golpes": len(numeros),
+        "texto": texto,
     }
 
 
@@ -1157,6 +1226,8 @@ def _eval_rodillas(
         return None
 
     cargas = _extremos_locales(serie, "min")
+    # El valor de cada golpe, para la regularidad
+    evaluar = partial(_evaluacion, todos=cargas)
     valores = [v for _, v in cargas]
     media = _media(valores)
     insuf = [(t, v) for t, v in cargas if v > rod_insuf]
@@ -1182,7 +1253,7 @@ def _eval_rodillas(
                 f" Sí lo haces bien {_citar_segundos([_segundos(t) for t, _ in buenas])}: "
                 "repite esa flexión en el resto de golpes."
             )
-        return _evaluacion(
+        return evaluar(
             "rodilla",
             tipo,
             "Flexión y carga de piernas",
@@ -1201,7 +1272,7 @@ def _eval_rodillas(
         f"carga ({rod_min:.0f}°–{rod_max:.0f}°). "
         f"Se observa {_citar_segundos([_segundos(t) for t, _ in cargas])}."
     )
-    return _evaluacion(
+    return evaluar(
         "rodilla",
         "optimo",
         "Flexión y carga de piernas",
@@ -1230,6 +1301,8 @@ def _eval_codo(
         return None
 
     picos = _extremos_locales(serie, "max")
+    # El valor de cada golpe, para la regularidad
+    evaluar = partial(_evaluacion, todos=picos)
     valores = [v for _, v in picos]
     media = _media(valores)
     encogidos = [(t, v) for t, v in picos if v < obj]
@@ -1258,7 +1331,7 @@ def _eval_codo(
                 f" La extensión sí es correcta "
                 f"{_citar_segundos([_segundos(t) for t, _ in buenos])}."
             )
-        return _evaluacion(
+        return evaluar(
             "codo",
             tipo,
             titulo,
@@ -1276,7 +1349,7 @@ def _eval_codo(
         f"{obj:.0f}° que buscamos. "
         f"Se observa {_citar_segundos([_segundos(t) for t, _ in picos])}."
     )
-    return _evaluacion(
+    return evaluar(
         "codo",
         "optimo",
         titulo,
@@ -1305,6 +1378,8 @@ def _eval_spacing(
         return None
 
     alcances = _extremos_locales(serie, "max")
+    # El valor de cada golpe, para la regularidad
+    evaluar = partial(_evaluacion, todos=alcances)
     valores = [v for _, v in alcances]
     media = _media(valores)
     pegados = [(t, v) for t, v in alcances if v < sp_min]
@@ -1334,7 +1409,7 @@ def _eval_spacing(
                 f" Mantén la distancia que ya logras "
                 f"{_citar_segundos([_segundos(t) for t, _ in buenos])}."
             )
-        return _evaluacion(
+        return evaluar(
             "spacing",
             tipo,
             "Separación respecto a la bola (Spacing)",
@@ -1350,7 +1425,7 @@ def _eval_spacing(
         f"corporal, suficiente para liberar el swing.{nota_2m}{nota_volea} "
         f"Se observa {_citar_segundos([_segundos(t) for t, _ in alcances])}."
     )
-    return _evaluacion(
+    return evaluar(
         "spacing",
         "optimo",
         "Separación respecto a la bola (Spacing)",
@@ -1378,6 +1453,8 @@ def _eval_apertura(
         return None
 
     armados = _extremos_locales(serie, "max")
+    # El valor de cada golpe, para la regularidad
+    evaluar = partial(_evaluacion, todos=armados)
     valores = [v for _, v in armados]
     media = _media(valores)
     cortos = [(t, v) for t, v in armados if v < APERTURA_HOMBRO_MINIMA]
@@ -1396,7 +1473,7 @@ def _eval_apertura(
                 f" La amplitud sí es buena "
                 f"{_citar_segundos([_segundos(t) for t, _ in buenos])}."
             )
-        return _evaluacion(
+        return evaluar(
             "apertura",
             tipo,
             "Apertura del arco y preparación (Backswing)",
@@ -1410,7 +1487,7 @@ def _eval_apertura(
         f"arco amplio para acelerar la raqueta. "
         f"Se observa {_citar_segundos([_segundos(t) for t, _ in armados])}."
     )
-    return _evaluacion(
+    return evaluar(
         "apertura",
         "optimo",
         "Apertura del arco y preparación (Backswing)",
@@ -1429,6 +1506,8 @@ def _eval_base(
         return None
 
     mins = _extremos_locales(serie_base, "min")
+    # El valor de cada golpe, para la regularidad
+    evaluar = partial(_evaluacion, todos=mins)
     media_base = _media([v for _, v in mins])
     estrechas = [(t, v) for t, v in mins if v < BASE_MINIMA]
     fase_n = FASE_NOMBRE["carga"]
@@ -1440,7 +1519,7 @@ def _eval_base(
             f"el ancho de hombros (busca al menos {BASE_OPTIMA:.1f}). "
             f"Separa más los pies {_citar_segundos([_segundos(t) for t, _ in estrechas])}."
         )
-        return _evaluacion(
+        return evaluar(
             "base", tipo, "Base de apoyo", mensaje, media_base, estrechas
         )
 
@@ -1449,7 +1528,7 @@ def _eval_base(
         f"veces el ancho de hombros. "
         f"Se observa {_citar_segundos([_segundos(t) for t, _ in mins])}."
     )
-    return _evaluacion(
+    return evaluar(
         "base", "optimo", "Base de apoyo", mensaje, media_base, mins
     )
 
@@ -1463,6 +1542,8 @@ def _eval_tronco(
         return None
 
     picos = _extremos_locales(serie, "max")
+    # El valor de cada golpe, para la regularidad
+    evaluar = partial(_evaluacion, todos=picos)
     media = _media([v for _, v in picos])
     inclinadas = [(t, v) for t, v in picos if v > INCLINACION_MAXIMA]
     fase_n = FASE_NOMBRE["impacto"]
@@ -1474,7 +1555,7 @@ def _eval_tronco(
             f"vertical (procura no superar {INCLINACION_MAXIMA:.0f}°). "
             f"Aparece {_citar_segundos([_segundos(t) for t, _ in inclinadas])}."
         )
-        return _evaluacion(
+        return evaluar(
             "tronco",
             tipo,
             "Equilibrio postural del tronco",
@@ -1488,7 +1569,7 @@ def _eval_tronco(
         f"inclinación media). "
         f"Se observa {_citar_segundos([_segundos(t) for t, _ in picos])}."
     )
-    return _evaluacion(
+    return evaluar(
         "tronco",
         "optimo",
         "Equilibrio postural del tronco",

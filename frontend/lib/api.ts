@@ -36,6 +36,8 @@ export type FeedbackEvent = {
   fase?: string;
   fase_nombre?: string;
   fase_corta?: string;
+  /** Cuánto varía el aspecto entre golpes del mismo tipo (con 3 golpes o más). */
+  regularidad?: { regular: boolean; minimo: number; maximo: number; golpes: number } | null;
 };
 
 export type ResumenGeneral = {
