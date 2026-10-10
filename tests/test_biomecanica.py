@@ -459,6 +459,35 @@ def test_reves_a_dos_manos_por_el_armado():
     assert bio.clasificar_tipo_golpe(impacto, prep, [], orientacion=1) == bio.TIPO_REVES_2
 
 
+@pytest.mark.parametrize(
+    ("distancia_manos", "esperado"),
+    [(0.1, bio.TIPO_REVES_2), (0.45, bio.TIPO_REVES_2), (0.9, bio.TIPO_DERECHA)],
+)
+def test_sin_orientacion_decide_por_las_manos_en_el_armado(distancia_manos, esperado):
+    # De perfil no se sabe qué lado es cuál; las manos juntas en el armado son revés.
+    # 0,45 cae en la zona gris del agarre: decide el estilo del perfil (dos manos)
+    prep = [
+        _frame(0.1 * i, de_frente=False, muneca_der_x=0.5 + distancia_manos * 0.2, muneca_izq_x=0.5, fase="preparacion")
+        for i in range(5)
+    ]
+    impacto = _frame(0.6, de_frente=False, muneca_der_x=0.5, muneca_izq_x=0.45)
+    tipo = bio.clasificar_tipo_golpe(impacto, prep, [], estilo_reves="2_manos", orientacion=0)
+    assert tipo == esperado
+
+
+def test_un_descenso_pequeno_no_es_cortado():
+    # Jugador lejano (escala pequeña): 0,03 de la imagen es menos de medio tronco
+    prep = [_frame(0.1 * i, de_frente=False, muneca_der_x=0.7, muneca_izq_x=0.3, fase="preparacion") for i in range(5)]
+    impacto = _frame(0.6, de_frente=False, muneca_der_x=0.6, muneca_izq_x=0.3)
+    final = _frame(0.9, de_frente=False, muneca_der_x=0.4, muneca_izq_x=0.3)
+    final["landmarks"]["muneca_der"][1] = impacto["landmarks"]["muneca_der"][1] + 0.03
+    final["landmarks"]["hombro_der"][1] = 0.4
+    assert bio.clasificar_tipo_golpe(impacto, prep, [final], orientacion=1) == bio.TIPO_DERECHA
+    # Medio tronco (escala 0,2) por debajo del impacto sí es un cortado
+    final["landmarks"]["muneca_der"][1] = impacto["landmarks"]["muneca_der"][1] + 0.15
+    assert bio.clasificar_tipo_golpe(impacto, prep, [final], orientacion=1) == bio.TIPO_CORTADO
+
+
 # --------------------------------------------------------------------------
 # Textos coherentes con los umbrales y la lateralidad
 # --------------------------------------------------------------------------

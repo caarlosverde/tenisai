@@ -110,7 +110,6 @@ REVES_MARGEN_X = 0.02
 VOLEA_APERTURA_MAX = 35.0
 RODILLA_TROFEO_MAX = 128.0
 SUBIDA_IZQ_TROFEO = 0.05
-TERMINACION_DESCENSO_MIN = 0.02
 TERMINACION_LAZO_SUBIDA = 0.06
 # Orientación de la cámara: (hombros + caderas, derecha menos izquierda) / escala.
 # De espaldas a la cámara el lado derecho sale a la derecha (+1,5 en los vídeos de
@@ -119,6 +118,13 @@ ORIENTACION_CLARA = 0.5
 # Muñeca dominante durante la preparación, a un lado u otro del torso (en escalas):
 # derecha en el lado dominante (+0,6 a +1,4), revés en el contrario (-0,4 a -0,9)
 LADO_PREPARACION_MIN = 0.3
+# Sin orientación clara: en el armado del revés las manos van juntas (la libre sujeta
+# el cuello de la raqueta) y en la derecha la libre se separa. Con los golpes
+# etiquetados a mano: reveses 0,14-0,53 escalas, derechas 0,58-1,41 en esos vídeos
+MANOS_REVES_PREPARACION = 0.55
+# Cortado: la muñeca termina claramente por debajo del impacto (en escalas: las
+# derechas etiquetadas llegan como mucho a 0,45)
+CORTADO_DESCENSO_MIN = 0.5
 
 # Metadatos visuales para el canvas del entrenador interactivo
 META_COACH = {
@@ -543,16 +549,26 @@ def _lado_preparacion(prep: list[dict], muneca_key: str, signo: int) -> float | 
     return sorted(lados)[len(lados) // 2]
 
 
-def _manos_en_preparacion(prep: list[dict], lado: dict) -> str:
-    """'juntas', 'separadas' o 'duda': el agarre a dos manos se ve en el armado."""
+def _distancia_manos_preparacion(prep: list[dict]) -> float | None:
+    """
+    Mediana de la distancia entre muñecas durante el armado (en escalas). No
+    depende de qué muñeca es la izquierda: sirve aunque MediaPipe las confunda.
+    """
     distancias = []
     for frame in prep:
-        dom, nd = _punto(frame, lado["muneca_dom"]), _punto(frame, lado["muneca_nd"])
-        if dom and nd:
-            distancias.append(math.dist(dom, nd) / _escala_frame(frame))
+        der, izq = _punto(frame, "muneca_der"), _punto(frame, "muneca_izq")
+        if der and izq:
+            distancias.append(math.dist(der, izq) / _escala_frame(frame))
     if not distancias:
+        return None
+    return sorted(distancias)[len(distancias) // 2]
+
+
+def _manos_en_preparacion(prep: list[dict]) -> str:
+    """'juntas', 'separadas' o 'duda': el agarre a dos manos se ve en el armado."""
+    mediana = _distancia_manos_preparacion(prep)
+    if mediana is None:
         return "duda"
-    mediana = sorted(distancias)[len(distancias) // 2]
     if mediana <= MANOS_JUNTAS_CLARO:
         return "juntas"
     if mediana >= MANOS_JUNTAS_SEPARADAS:
@@ -630,18 +646,26 @@ def clasificar_tipo_golpe(
     lado_prep = (
         _lado_preparacion(prep, lado["muneca_dom"], dir_x) if orientacion != 0 else None
     )
+    manos_prep = _distancia_manos_preparacion(prep)
     if lado_prep is not None and abs(lado_prep) >= LADO_PREPARACION_MIN:
         impacto_reves = lado_prep < 0
+    elif orientacion == 0 and manos_prep is not None:
+        # Sin saber qué lado es cuál: manos juntas en el armado, revés
+        impacto_reves = manos_prep <= MANOS_REVES_PREPARACION
     else:
-        # Sin orientación clara o armado ambiguo: dónde queda la muñeca al impactar
+        # Armado ambiguo: dónde queda la muñeca al impactar
         impacto_reves = bool(
             muneca_dom
             and torso
             and _cruzar_hacia_nd(torso[0], muneca_dom[0], dir_x)
         )
     if impacto_reves:
-        estado_manos = _manos_en_preparacion(prep, lado) if orientacion != 0 else "duda"
-        if estado_manos == "duda":
+        estado_manos = _manos_en_preparacion(prep)
+        if orientacion == 0 and estado_manos == "separadas":
+            # Si se llegó aquí por tener las manos juntas en el armado, «separadas»
+            # solo es la zona gris del umbral: decide el estilo del perfil
+            estado_manos = "duda"
+        elif estado_manos == "duda" and orientacion != 0:
             estado_manos = _estado_manos(muneca_dom, muneca_nd, escala)
         if estado_manos == "juntas":
             tipo_base = TIPO_REVES_2
@@ -695,9 +719,11 @@ def clasificar_tipo_golpe(
         y_fin = ys_term[-1]
         y_min_term = min(ys_term)
         hombro_y = hombro_dom[1] if hombro_dom else None
-        subio_hombro = hombro_y is not None and y_min_term < hombro_y - 0.01
-        descendente = y_fin > y_imp + TERMINACION_DESCENSO_MIN and not subio_hombro
-        if descendente:
+        # En escalas del jugador: con márgenes fijos de la imagen, un jugador lejano
+        # (pequeño) hacía «cortado» casi cualquier derecha
+        subio_hombro = hombro_y is not None and (hombro_y - y_min_term) / escala > 0.05
+        descenso = (y_fin - y_imp) / escala
+        if descenso > CORTADO_DESCENSO_MIN and not subio_hombro:
             return TIPO_CORTADO
 
     return tipo_base
