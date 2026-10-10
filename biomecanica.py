@@ -101,6 +101,10 @@ FASE_POR_CATEGORIA = {
 PRIORIDAD_FASE = ("impacto", "carga", "preparacion", "terminacion")
 TERMINACION_SUBIDA_MIN = 0.03
 TERMINACION_CRUCE_MIN = 0.04
+# Revés y demás golpes: subida mínima de la muñeca desde el impacto, en escalas
+# (los reveses etiquetados suben 0,23-1,11, y los de menos terminan a la altura
+# de la cabeza)
+TERMINACION_SUBIDA_IMPACTO_MIN = 0.3
 
 TIPO_DERECHA = "Derecha"
 TIPO_SAQUE = "Saque"
@@ -928,6 +932,11 @@ def _perfil_golpe(
         perfil["spacing_optimo"] = 1.10
     elif tipo == TIPO_CORTADO:
         perfil["eval_terminacion"] = False
+
+    if tipo in (TIPO_REVES_1, TIPO_REVES_2):
+        # La apertura del brazo (objetivo de 95°) es de la derecha: en el revés el
+        # brazo prepara cruzado por delante del cuerpo (Sinner, 32-40°)
+        perfil["eval_apertura"] = False
     return perfil
 
 
@@ -1118,11 +1127,21 @@ def _evaluacion(
     zona_corporal: str | None = None,
     nota_fallo=None,
     todos: list[tuple[int, float]] | None = None,
+    escala_nota: tuple[float, float] | None = None,
+    nota: float | None = None,
 ) -> dict:
     """
     nota_fallo sustituye a la nota de META_COACH cuando el objetivo depende del golpe.
     todos: el valor de cada golpe (no solo los fallos), para valorar la regularidad.
+    escala_nota: (umbral a partir del que es un fallo, umbral de alerta) para puntuar
+    cada golpe de 0 a 100 según lo lejos que quede (ver _nota_aspecto);
+    nota: la puntuación ya calculada, si el aspecto no se mide con un valor así.
     """
+    if nota is None and escala_nota is not None:
+        # Golpe a golpe, como las etiquetas: un golpe que falla baja la nota aunque
+        # la media cumpla el objetivo
+        valores = [v for _, v in todos] if todos else [valor]
+        nota = _media([_nota_aspecto(v, *escala_nota) for v in valores])
     regularidad = _regularidad(categoria, todos or [], es_fallo=tipo != "optimo")
     if regularidad:
         mensaje = f"{mensaje} {regularidad['texto']}"
@@ -1161,7 +1180,24 @@ def _evaluacion(
             if regularidad
             else None
         ),
+        "nota": None if nota is None else int(round(nota)),
     }
+
+
+def _nota_aspecto(valor: float, objetivo: float, alerta: float) -> float:
+    """
+    Puntuación de 0 a 100 de un aspecto según lo lejos que queda del objetivo:
+    100 si lo cumple, 40 justo en el umbral de alerta y 0 un poco más allá. Así
+    una rodilla a 131° y otra a 160° ya no restan lo mismo, y la evolución del
+    jugador se nota antes de cruzar un umbral.
+    """
+    tramo = abs(alerta - objetivo)
+    if tramo <= 0:
+        return 100.0
+    # Distancia recorrida desde el objetivo hacia la alerta (0 si se cumple)
+    sentido = 1.0 if alerta > objetivo else -1.0
+    distancia = max(0.0, (valor - objetivo) * sentido)
+    return max(0.0, min(100.0, 100.0 - 60.0 * distancia / tramo))
 
 
 def _regularidad(
@@ -1227,7 +1263,7 @@ def _eval_rodillas(
 
     cargas = _extremos_locales(serie, "min")
     # El valor de cada golpe, para la regularidad
-    evaluar = partial(_evaluacion, todos=cargas)
+    evaluar = partial(_evaluacion, todos=cargas, escala_nota=(rod_insuf, rod_insuf + 15))
     valores = [v for _, v in cargas]
     media = _media(valores)
     insuf = [(t, v) for t, v in cargas if v > rod_insuf]
@@ -1302,7 +1338,7 @@ def _eval_codo(
 
     picos = _extremos_locales(serie, "max")
     # El valor de cada golpe, para la regularidad
-    evaluar = partial(_evaluacion, todos=picos)
+    evaluar = partial(_evaluacion, todos=picos, escala_nota=(obj, aceptable))
     valores = [v for _, v in picos]
     media = _media(valores)
     encogidos = [(t, v) for t, v in picos if v < obj]
@@ -1379,7 +1415,9 @@ def _eval_spacing(
 
     alcances = _extremos_locales(serie, "max")
     # El valor de cada golpe, para la regularidad
-    evaluar = partial(_evaluacion, todos=alcances)
+    evaluar = partial(
+        _evaluacion, todos=alcances, escala_nota=(sp_min, max(0.45, sp_min - 0.15))
+    )
     valores = [v for _, v in alcances]
     media = _media(valores)
     pegados = [(t, v) for t, v in alcances if v < sp_min]
@@ -1454,7 +1492,7 @@ def _eval_apertura(
 
     armados = _extremos_locales(serie, "max")
     # El valor de cada golpe, para la regularidad
-    evaluar = partial(_evaluacion, todos=armados)
+    evaluar = partial(_evaluacion, todos=armados, escala_nota=(APERTURA_HOMBRO_MINIMA, 60.0))
     valores = [v for _, v in armados]
     media = _media(valores)
     cortos = [(t, v) for t, v in armados if v < APERTURA_HOMBRO_MINIMA]
@@ -1507,7 +1545,7 @@ def _eval_base(
 
     mins = _extremos_locales(serie_base, "min")
     # El valor de cada golpe, para la regularidad
-    evaluar = partial(_evaluacion, todos=mins)
+    evaluar = partial(_evaluacion, todos=mins, escala_nota=(BASE_MINIMA, 0.55))
     media_base = _media([v for _, v in mins])
     estrechas = [(t, v) for t, v in mins if v < BASE_MINIMA]
     fase_n = FASE_NOMBRE["carga"]
@@ -1543,7 +1581,7 @@ def _eval_tronco(
 
     picos = _extremos_locales(serie, "max")
     # El valor de cada golpe, para la regularidad
-    evaluar = partial(_evaluacion, todos=picos)
+    evaluar = partial(_evaluacion, todos=picos, escala_nota=(INCLINACION_MAXIMA, INCLINACION_ALERTA))
     media = _media([v for _, v in picos])
     inclinadas = [(t, v) for t, v in picos if v > INCLINACION_MAXIMA]
     fase_n = FASE_NOMBRE["impacto"]
@@ -1606,6 +1644,15 @@ def _stats_terminacion(
             puntos.append((t, muneca[0], muneca[1], frame))
         if len(puntos) < 2:
             continue
+        # Subida desde el propio impacto (en escalas): la ventana empieza 0,1 s
+        # después y en un golpe rápido la muñeca ya va alta para entonces
+        frame_imp = _frame_mas_cercano(frames, float(ventana.get("t_impacto", ventana["t_inicio"])))
+        muneca_imp = _punto(frame_imp, muneca_key)
+        subida_impacto = (
+            (muneca_imp[1] - min(p[2] for p in puntos)) / _escala_frame(frame_imp)
+            if muneca_imp
+            else None
+        )
         y0 = puntos[0][2]
         ymin = min(p[2] for p in puntos)
         subida = y0 - ymin
@@ -1635,6 +1682,7 @@ def _stats_terminacion(
                 "hombro_dom_y": hombro_dom[1] if hombro_dom else None,
                 "hombro_nd_x": hombro_nd[0] if hombro_nd else None,
                 "nariz_y": nariz[1] if nariz else None,
+                "subida_impacto": subida_impacto,
             }
         )
     return stats
@@ -1689,6 +1737,11 @@ def _es_terminacion_completa(stat: dict, modo: str) -> bool:
         x0 = float(stat.get("x0") or 0.0)
         return (x0 - x_fin) * dir_x > TERMINACION_CRUCE_MIN
 
+    # Revés y demás: la muñeca sube tras el impacto o termina a la altura de la cabeza
+    subida_impacto = stat.get("subida_impacto")
+    if subida_impacto is not None:
+        a_la_cabeza = nariz_y is not None and y_min <= float(nariz_y) + 0.01
+        return subida_impacto >= TERMINACION_SUBIDA_IMPACTO_MIN or a_la_cabeza
     return not (subida < TERMINACION_SUBIDA_MIN and cruce < TERMINACION_CRUCE_MIN)
 
 
@@ -1723,6 +1776,8 @@ def _eval_terminacion_estilo(
 
     episodios = [(s["t_ms"], s["recorrido"]) for s in stats]
     cortos = [(s["t_ms"], s["recorrido"]) for s in stats if not s["completo"]]
+    # Nota: el porcentaje de golpes con la terminación completa
+    evaluar = partial(_evaluacion, nota=100.0 * (1 - len(cortos) / len(episodios)))
     media = _media([v for _, v in episodios])
     fase_n = FASE_NOMBRE["terminacion"]
 
@@ -1738,7 +1793,7 @@ def _eval_terminacion_estilo(
                 f"hombro dominante. "
                 f"Aparece {_citar_segundos([_segundos(t) for t, _ in cortos])}."
             )
-            return _evaluacion(
+            return evaluar(
                 "terminacion",
                 tipo,
                 "Acompañamiento / Terminación (Lazo)",
@@ -1753,7 +1808,7 @@ def _eval_terminacion_estilo(
             f"encima de la cabeza o sobre el hombro dominante. "
             f"Se observa {_citar_segundos([_segundos(t) for t, _ in episodios])}."
         )
-        return _evaluacion(
+        return evaluar(
             "terminacion",
             "optimo",
             "Acompañamiento / Terminación (Lazo)",
@@ -1775,7 +1830,7 @@ def _eval_terminacion_estilo(
                 f"acompañar cruzando el cuerpo. "
                 f"Aparece {_citar_segundos([_segundos(t) for t, _ in cortos])}."
             )
-            return _evaluacion(
+            return evaluar(
                 "terminacion",
                 tipo,
                 "Acompañamiento / Terminación",
@@ -1790,7 +1845,7 @@ def _eval_terminacion_estilo(
             f"swing. "
             f"Se observa {_citar_segundos([_segundos(t) for t, _ in episodios])}."
         )
-        return _evaluacion(
+        return evaluar(
             "terminacion",
             "optimo",
             "Acompañamiento / Terminación",
@@ -1809,7 +1864,7 @@ def _eval_terminacion_estilo(
             f"cruza tras el impacto. Deja que el "
             f"brazo acompañe. Aparece {_citar_segundos([_segundos(t) for t, _ in cortos])}."
         )
-        return _evaluacion(
+        return evaluar(
             "terminacion",
             tipo,
             "Acompañamiento / Terminación",
@@ -1821,7 +1876,7 @@ def _eval_terminacion_estilo(
     mensaje = (
         f"En la {fase_n} la muñeca sube y acompaña el swing. Se observa {_citar_segundos([_segundos(t) for t, _ in episodios])}."
     )
-    return _evaluacion(
+    return evaluar(
         "terminacion",
         "optimo",
         "Acompañamiento / Terminación",
@@ -1879,7 +1934,13 @@ def _etiqueta_golpes(conteo: dict[str, int]) -> str:
 
 
 def _puntuacion(evaluaciones: list[dict]) -> int:
-    """100 menos la penalización de cada aspecto según su gravedad."""
+    """
+    Media de las notas de 0 a 100 de cada aspecto. Si alguno no la tiene, la forma
+    anterior: 100 menos una penalización fija por aspecto según su gravedad.
+    """
+    notas = [ev.get("nota") for ev in evaluaciones]
+    if evaluaciones and all(n is not None for n in notas):
+        return int(round(sum(notas) / len(notas)))
     penalizacion = sum(PENALIZACION.get(ev["tipo"], 8) for ev in evaluaciones)
     puntuacion = max(0, min(100, 100 - penalizacion))
     if evaluaciones and all(ev["tipo"] == "optimo" for ev in evaluaciones):

@@ -38,6 +38,8 @@ export type FeedbackEvent = {
   fase_corta?: string;
   /** Cuánto varía el aspecto entre golpes del mismo tipo (con 3 golpes o más). */
   regularidad?: { regular: boolean; minimo: number; maximo: number; golpes: number } | null;
+  /** Nota de 0 a 100 del aspecto (media de sus golpes); la del clip es la media de estas. */
+  nota?: number | null;
 };
 
 export type ResumenGeneral = {

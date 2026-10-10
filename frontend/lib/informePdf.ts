@@ -48,9 +48,9 @@ const TIPO_JUSTIFICACION: Record<string, string> = {
   Remate:
     "Se evalua la extension vertical del brazo, sin spacing horizontal. La carga de rodillas es menos extrema que en el saque.",
   "Revés (2 Manos)":
-    "Se permite un spacing mas corto (contacto mas pegado). El codo izquierdo puede ir flexionado.",
+    "Se permite un spacing mas corto (contacto mas pegado) y el codo puede ir flexionado. No se mide la apertura del brazo de la derecha; la terminacion se valora desde el impacto.",
   "Revés (1 Mano)":
-    "Contacto a la izquierda del torso con un solo brazo. Spacing y extension se miden como en una derecha invertida.",
+    "Contacto en el lado contrario a la mano dominante, con un solo brazo. No se mide la apertura del brazo de la derecha; la terminacion se valora desde el impacto.",
   Volea:
     "El armado corto no se penaliza. Se exige un spacing firme por delante del cuerpo.",
   Cortado:

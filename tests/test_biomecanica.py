@@ -361,6 +361,57 @@ def test_con_menos_de_tres_golpes_no_se_valora_la_regularidad():
     assert bio._regularidad("terminacion", [(0, 0.1), (2000, 0.2), (4000, 0.3)]) is None
 
 
+@pytest.mark.parametrize(
+    ("valor", "objetivo", "alerta", "esperado"),
+    [
+        (160, 155, 140, 100),  # cumple: más es mejor
+        (140, 155, 140, 40),  # justo en la alerta
+        (147.5, 155, 140, 70),  # a medio camino
+        (120, 155, 140, 0),  # muy por debajo
+        (125, 130, 145, 100),  # cumple: menos es mejor (rodilla)
+        (145, 130, 145, 40),
+    ],
+)
+def test_nota_de_un_aspecto_segun_la_distancia_al_objetivo(valor, objetivo, alerta, esperado):
+    assert bio._nota_aspecto(valor, objetivo, alerta) == pytest.approx(esperado)
+
+
+def test_la_nota_del_clip_es_la_media_de_los_aspectos():
+    evs = [{"tipo": "optimo", "nota": 100}, {"tipo": "mejora", "nota": 70}, {"tipo": "alerta", "nota": 10}]
+    assert bio._puntuacion(evs) == 60
+    # Sin notas (análisis antiguos): la penalización fija de siempre
+    assert bio._puntuacion([{"tipo": "mejora"}, {"tipo": "alerta"}]) == 100 - 8 - 16
+
+
+def test_cada_golpe_cuenta_en_la_nota(tmp_path):
+    # Media 162° (cumple) pero un golpe a 135°: la nota baja aunque la media cumpla
+    codo = _evaluacion(
+        bio.generar_feedback(_escribir_csv(tmp_path / "m.csv", codos_der=(175, 135, 175))), "codo"
+    )
+    assert codo["nota"] < 100
+    assert _evaluacion(bio.generar_feedback(_escribir_csv(tmp_path / "n.csv")), "codo")["nota"] == 100
+
+
+def test_el_reves_no_usa_la_apertura_de_la_derecha():
+    assert bio._perfil_golpe(bio.TIPO_REVES_2)["eval_apertura"] is False
+    assert bio._perfil_golpe(bio.TIPO_REVES_1)["eval_apertura"] is False
+    assert bio._perfil_golpe(bio.TIPO_DERECHA)["eval_apertura"] is True
+
+
+@pytest.mark.parametrize(
+    ("subida_impacto", "y_min", "completa"),
+    [
+        (0.5, 0.60, True),  # la muñeca sube medio tronco tras el impacto
+        (0.1, 0.60, False),  # apenas sube y queda por debajo de la cabeza
+        (0.1, 0.30, True),  # termina a la altura de la cabeza
+    ],
+)
+def test_terminacion_del_reves_desde_el_impacto(subida_impacto, y_min, completa):
+    stat = {"subida": 0.0, "cruce": 0.0, "y_fin": y_min, "y_min": y_min, "nariz_y": 0.30,
+            "dir_x": 1, "subida_impacto": subida_impacto}
+    assert bio._es_terminacion_completa(stat, "generico") is completa
+
+
 def test_tipo_elegido_por_el_jugador():
     assert bio.tipo_elegido("auto") is None
     assert bio.tipo_elegido(None) is None
