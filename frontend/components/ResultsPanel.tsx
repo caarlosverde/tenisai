@@ -18,6 +18,7 @@ import {
   Lightbulb,
   Loader2,
   PlayCircle,
+  Video,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -383,6 +384,29 @@ export default function ResultsPanel({
               <span className="text-[11px] uppercase tracking-wider text-slate-400">/ 100</span>
             </span>
           ) : null}
+        </section>
+      ) : null}
+
+      {resumenGeneral?.calidad?.length ? (
+        <section
+          aria-labelledby="calidad-grabacion-titulo"
+          className="mb-6 rounded-3xl border border-amber-400/25 bg-amber-400/5 p-5"
+        >
+          <h2
+            id="calidad-grabacion-titulo"
+            className="flex items-center gap-2 text-sm font-semibold text-amber-100"
+          >
+            <Video className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            Para que el análisis sea más fiable
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {resumenGeneral.calidad.map((aviso) => (
+              <li key={aviso.codigo} className="flex gap-2 text-sm leading-relaxed text-slate-300">
+                <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300/70" />
+                {aviso.mensaje}
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 

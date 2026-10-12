@@ -54,6 +54,10 @@ export type ResumenGeneral = {
   estilo_reves?: string;
   estilo_derecha?: string;
   adaptacion?: string;
+  /** Aspectos que no se pudieron valorar (articulaciones poco visibles). */
+  sin_datos?: string[];
+  /** Problemas de la grabación que restan precisión, con cómo evitarlos. */
+  calidad?: { codigo: string; mensaje: string }[];
 };
 
 /** Respuesta de /progreso/{job_id} y, ya completado, de /resultado/{job_id}. */

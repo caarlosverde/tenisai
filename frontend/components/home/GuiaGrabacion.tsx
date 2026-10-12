@@ -4,8 +4,9 @@ import { MAX_VIDEO_MB } from "@/lib/video";
 export const CONSEJOS_GRABACION = [
   {
     Icono: Camera,
-    titulo: "De lado o en diagonal por detrás",
-    texto: "Con la cámara quieta (trípode o apoyada) a la altura de la cintura y a unos 4–6 metros.",
+    titulo: "Desde detrás o en diagonal por detrás",
+    texto:
+      "Con la cámara quieta (trípode o apoyada) a la altura de la cintura y a unos 4–6 metros. De perfil cuesta distinguir la derecha del revés.",
   },
   {
     Icono: PersonStanding,

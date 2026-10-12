@@ -1929,6 +1929,98 @@ def _texto_adaptacion(
     )
 
 
+# Calidad de la grabación (medida con los vídeos de prueba: el jugador lejano de
+# WA0006 mide unos 190 px y los demás 390-510; a Alcaraz no se le ven los pies)
+CALIDAD_ALTURA_MIN_PX = 250
+CALIDAD_TOBILLOS_VISIBILIDAD = 0.3
+CALIDAD_FRACCION_SIN_PIES = 0.5
+CALIDAD_FRACCION_SIN_JUGADOR = 0.15
+CALIDAD_MUNECA_VISIBILIDAD = 0.5
+CALIDAD_FPS_RAPIDO = 50
+
+
+def calidad_grabacion(
+    frames: list[dict] | None,
+    golpes_fases: list[dict] | None = None,
+    *,
+    alto_video: int | None = None,
+    fps: float | None = None,
+    lateralidad: str = LAT_DIESTRO,
+) -> list[dict]:
+    """
+    Problemas de la grabación que restan precisión al análisis, con cómo evitarlos.
+    No cambian la nota: explican por qué un análisis puede ser menos fiable.
+    """
+    if not frames:
+        return []
+    avisos: list[dict] = []
+    con_jugador = [f for f in frames if f.get("landmarks")]
+
+    if len(con_jugador) < len(frames) * (1 - CALIDAD_FRACCION_SIN_JUGADOR):
+        perdido = round(100 * (1 - len(con_jugador) / len(frames)))
+        avisos.append({
+            "codigo": "jugador_perdido",
+            "mensaje": f"No se te detecta en el {perdido} % del vídeo: que nadie se cruce por "
+            "delante y que salgas entero todo el tiempo.",
+        })
+    if not con_jugador:
+        return avisos
+
+    alturas = sorted(f["bbox"][3] - f["bbox"][1] for f in con_jugador if f.get("bbox"))
+    if alto_video and alturas:
+        alto_px = alturas[len(alturas) // 2] * alto_video
+        if alto_px < CALIDAD_ALTURA_MIN_PX:
+            avisos.append({
+                "codigo": "jugador_pequeno",
+                "mensaje": f"Sales pequeño en la imagen (unos {alto_px:.0f} píxeles de alto): "
+                "acércate a la cámara o graba con más resolución. Con el jugador pequeño "
+                "se distinguen peor las articulaciones.",
+            })
+
+    def visible(frame: dict, nombre: str, umbral: float) -> bool:
+        punto = frame["landmarks"].get(nombre)
+        return bool(punto) and float(punto[2] if len(punto) > 2 else 1.0) >= umbral
+
+    sin_pies = sum(
+        1
+        for f in con_jugador
+        if not visible(f, "tobillo_der", CALIDAD_TOBILLOS_VISIBILIDAD)
+        and not visible(f, "tobillo_izq", CALIDAD_TOBILLOS_VISIBILIDAD)
+    )
+    if sin_pies > len(con_jugador) * CALIDAD_FRACCION_SIN_PIES:
+        avisos.append({
+            "codigo": "pies_fuera",
+            "mensaje": "No se te ven los pies en buena parte del vídeo: encuadra el cuerpo "
+            "entero, de la cabeza a los pies, para poder medir las piernas y los apoyos.",
+        })
+
+    impactos = _impactos(golpes_fases)
+    if impactos and fps and fps < CALIDAD_FPS_RAPIDO:
+        muneca = _lado(lateralidad)["muneca_dom"]
+        visibilidades = [
+            float(punto[2])
+            for t in impactos
+            if (frame := _frame_mas_cercano(con_jugador, t))
+            and (punto := frame["landmarks"].get(muneca))
+            and len(punto) > 2
+        ]
+        if visibilidades and _media(visibilidades) < CALIDAD_MUNECA_VISIBILIDAD:
+            avisos.append({
+                "codigo": "muneca_borrosa",
+                "mensaje": f"La muñeca sale borrosa en los golpes (vídeo a {fps:.0f} fps): si tu "
+                "móvil lo permite, graba a 60 fps para medir mejor el brazo.",
+            })
+
+    if orientacion_camara(frames) == 0:
+        avisos.append({
+            "codigo": "orientacion_dudosa",
+            "mensaje": "No se distingue si estás de frente o de espaldas a la cámara (vista "
+            "de perfil o jugador lejano): el tipo de golpe se reconoce peor. Graba desde "
+            "detrás o en diagonal por detrás, o indica qué golpe es al subir el vídeo.",
+        })
+    return avisos
+
+
 NOMBRE_GOLPE = {
     TIPO_DERECHA: ("derecha", "derechas"),
     TIPO_SAQUE: ("saque", "saques"),
@@ -2089,11 +2181,14 @@ def generar_feedback(
     lateralidad: str = LAT_DIESTRO,
     tipo_forzado: str | None = None,
     codo_derecha: str = CODO_DERECHA_RECTO,
+    alto_video: int | None = None,
+    fps: float | None = None,
 ) -> dict:
     """
     Evalúa las métricas del vídeo y devuelve un análisis de entrenador agrupado.
     tipo_forzado: tipo de golpe indicado por el jugador (sin clasificar).
     codo_derecha: "recto" o "flexionado" (doble flexión) en el impacto de la derecha.
+    alto_video, fps: del vídeo original, para los avisos de calidad de la grabación.
     """
     estilo_r = _normalizar_estilo_reves(estilo_reves)
     estilo_d = _normalizar_estilo_derecha(estilo_derecha)
@@ -2201,6 +2296,9 @@ def generar_feedback(
         puntuacion=puntuacion,
         etiqueta=etiqueta,
         sin_datos=[c for c in sin_datos if c not in valoradas],
+    )
+    resumen["calidad"] = calidad_grabacion(
+        frames, golpes_fases, alto_video=alto_video, fps=fps, lateralidad=lat
     )
     return {
         "resumen_general": resumen,

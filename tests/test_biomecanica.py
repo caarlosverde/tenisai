@@ -594,6 +594,60 @@ def test_un_descenso_pequeno_no_es_cortado():
 
 
 # --------------------------------------------------------------------------
+# Calidad de la grabación
+# --------------------------------------------------------------------------
+
+
+def _frame_calidad(t: float, *, alto=0.4, tobillos_vis=0.9, muneca_vis=0.9, de_frente=False):
+    frame = _frame(t, de_frente=de_frente, muneca_der_x=0.6, muneca_izq_x=0.4)
+    frame["bbox"] = [0.4, 0.3, 0.6, 0.3 + alto]
+    frame["landmarks"]["tobillo_der"] = [0.52, 0.8, tobillos_vis]
+    frame["landmarks"]["tobillo_izq"] = [0.48, 0.8, tobillos_vis]
+    frame["landmarks"]["muneca_der"][2] = muneca_vis
+    return frame
+
+
+def _codigos(frames, **kwargs) -> list[str]:
+    fases = bio.construir_golpes_fases([0.5])
+    return [a["codigo"] for a in bio.calidad_grabacion(frames, fases, **kwargs)]
+
+
+def test_una_buena_grabacion_no_tiene_avisos():
+    frames = [_frame_calidad(i / 30) for i in range(30)]
+    assert _codigos(frames, alto_video=1080, fps=60) == []
+
+
+def test_avisos_de_calidad_de_la_grabacion():
+    # Jugador de 0,2 de alto en un vídeo de 576 px: unos 115 px
+    assert "jugador_pequeno" in _codigos([_frame_calidad(i / 30, alto=0.2) for i in range(30)], alto_video=576, fps=60)
+    assert "pies_fuera" in _codigos([_frame_calidad(i / 30, tobillos_vis=0.05) for i in range(30)], alto_video=1080, fps=60)
+    # Muñeca borrosa: solo se avisa si el vídeo va a menos de 50 fps
+    borrosa = [_frame_calidad(i / 30, muneca_vis=0.2) for i in range(30)]
+    assert "muneca_borrosa" in _codigos(borrosa, alto_video=1080, fps=30)
+    assert "muneca_borrosa" not in _codigos(borrosa, alto_video=1080, fps=60)
+    perdidos = [_frame_calidad(i / 30) for i in range(20)] + [{"t": 1 + i / 30} for i in range(10)]
+    assert "jugador_perdido" in _codigos(perdidos, alto_video=1080, fps=60)
+
+
+def test_aviso_de_orientacion_dudosa():
+    frames = [_frame_calidad(i / 30) for i in range(30)]
+    for frame in frames:
+        for nombre in ("hombro_der", "hombro_izq", "cadera_der", "cadera_izq"):
+            frame["landmarks"][nombre][0] = 0.5
+    assert "orientacion_dudosa" in _codigos(frames, alto_video=1080, fps=60)
+
+
+def test_la_calidad_va_en_el_resumen_sin_cambiar_la_nota(tmp_path):
+    ruta = _escribir_csv(tmp_path / "m.csv")
+    fases = _fases_con_tipos([bio.TIPO_DERECHA] * 3)
+    frames = [_frame_calidad(i / 30, alto=0.2) for i in range(135)]
+    con_video = bio.generar_feedback(ruta, golpes_fases=fases, frames=frames, alto_video=576, fps=30)
+    sin_video = bio.generar_feedback(ruta, golpes_fases=fases, frames=frames)
+    assert "jugador_pequeno" in [a["codigo"] for a in con_video["resumen_general"]["calidad"]]
+    assert con_video["resumen_general"]["puntuacion"] == sin_video["resumen_general"]["puntuacion"]
+
+
+# --------------------------------------------------------------------------
 # Textos coherentes con los umbrales y la lateralidad
 # --------------------------------------------------------------------------
 

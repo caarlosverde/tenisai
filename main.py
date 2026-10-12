@@ -1426,6 +1426,8 @@ def procesar_video(
         lateralidad=lateralidad,
         tipo_forzado=tipo_forzado,
         codo_derecha=codo_derecha,
+        alto_video=src_h,
+        fps=fps,
     )
     evaluaciones = feedback.get("evaluaciones", [])
     print(f"Feedback biomecánico: {len(evaluaciones)} evaluaciones agrupadas")
