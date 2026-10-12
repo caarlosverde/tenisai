@@ -24,5 +24,6 @@ services:
       - ./main.py:/app/main.py
       - ./api.py:/app/api.py
       - ./biomecanica.py:/app/biomecanica.py
+      - ./geometria.py:/app/geometria.py
     command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     restart: unless-stopped

@@ -84,6 +84,7 @@ flowchart LR
 | `frontend/` | Next.js 16 (App Router), React 19, Tailwind 4, Prisma + SQLite | Interfaz, cuentas y sesiones (JWT en cookie `httpOnly`), historial, comunidad y ranking |
 | `api.py` | FastAPI | Recepción de vídeos, cola, progreso, resultados, borrado, límites por usuario |
 | `main.py` | OpenCV, MediaPipe Pose, YOLOv8 | Pose, pelota, ángulos, vídeo anotado, CSV y `pose_tracks.json` |
+| `geometria.py` | NumPy, SciPy | Ángulos, medidas en 3D, métricas por frame y filtros (sin OpenCV: se prueba con pytest) |
 | `biomecanica.py` | Python estándar | Fases del golpe, tipo de golpe, reglas, nota y consejos |
 
 El navegador solo habla con la web: lo que pide en `/motor/...` lo reenvía Next al backend
@@ -218,9 +219,12 @@ npm run test:e2e
 CAPTURAS=1 npx playwright test           # además regenera docs/capturas
 ```
 
-- `tests/test_biomecanica.py`: geometría, fases, detección de golpes, perfiles por tipo
-  de golpe, puntuación y `generar_feedback` con CSV sintéticos (incluida la inversión
-  de lateralidad).
+- `tests/test_biomecanica.py`: fases, detección y clasificación de golpes (con la
+  orientación de la cámara), perfiles por tipo de golpe, regularidad, puntuación,
+  calidad de la grabación y `generar_feedback` con CSV sintéticos (incluida la
+  inversión de lateralidad).
+- `tests/test_geometria.py`: ángulos, medidas en 3D (base, separación de la muñeca,
+  giro), visibilidad de las articulaciones y suavizado de las series.
 - `tests/test_api.py`: cola, un análisis en marcha por usuario, límites por hora,
   sesión falsa o caducada, tamaño y formato del vídeo, ids maliciosos, borrado solo por
   el dueño y limpieza de análisis anónimos. Sustituye el motor de visión por uno falso.
@@ -297,6 +301,7 @@ Calidad del frontend: `npm run typecheck` y `npm run lint`.
 ```
 api.py               API FastAPI (cola, sesiones, límites, resultados)
 main.py              Motor de visión: pose, pelota, ángulos, vídeo anotado
+geometria.py         Ángulos, medidas 3D, métricas por frame y filtros
 biomecanica.py       Reglas biomecánicas, fases y tipo de golpe
 tests/               Tests de pytest
 data/analisis/       Un directorio por análisis (montado como volumen)

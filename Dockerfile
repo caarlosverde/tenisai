@@ -44,7 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Código del backend
-COPY main.py api.py biomecanica.py ./
+COPY main.py api.py biomecanica.py geometria.py ./
 
 EXPOSE 8000
 
