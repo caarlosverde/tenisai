@@ -79,7 +79,10 @@ YOLO_MODEL_PATH = PROJECT_ROOT / "models" / "yolov8n.pt"
 YOLO_TRACKER = "bytetrack.yaml"
 # Ejecutar YOLO 1 de cada N frames: la pelota sale en pocos frames y el coste por
 # frame es alto, así que espaciarlo recorta el tiempo casi sin perder detecciones.
-YOLO_FRAME_STRIDE = 3
+# Medido: de 3 a 4 frames, un 25 % menos de llamadas con la misma proporción de
+# frames con pelota (33-35 % en WA0006). Bajar la resolución de entrada no sirve: a
+# 480 px la pelota, diminuta, solo se encuentra en el 18 % de los frames (76 % a 640)
+YOLO_FRAME_STRIDE = 4
 SPORTS_BALL_CLASS_ID = 32
 BALL_BOX_COLOR = (0, 165, 255)  # Naranja puro (BGR)
 # Ancho de zapatilla como fracción del ancho del frame, para filtrar falsos positivos
@@ -601,7 +604,9 @@ def recodificar_h264(
                 "-c:v",
                 "libx264",
                 "-preset",
-                "fast",
+                # Medido con 500 frames: la mitad de tiempo que "fast" (10 s frente a
+                # 21 s) y un archivo algo menor con la misma calidad (CRF 21)
+                "veryfast",
                 "-crf",
                 "21",
                 "-r",
