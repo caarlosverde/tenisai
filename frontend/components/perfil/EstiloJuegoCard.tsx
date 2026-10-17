@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { flushSync } from "react-dom";
-import { Loader2, Sparkles } from "lucide-react";
+import { Check, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
   type CodoDerecha,
@@ -55,7 +55,7 @@ const PREGUNTAS: {
       {
         value: "1_mano",
         title: "A una mano",
-        desc: "Solo la mano dominante en el grip. Desempata si hay oclusión.",
+        desc: "Solo la mano dominante en el grip. Ayuda a reconocer el revés cuando una mano queda tapada.",
       },
     ],
   },
@@ -65,12 +65,12 @@ const PREGUNTAS: {
       {
         value: "tradicional",
         title: "Clásica cruzada",
-        desc: "La muñeca debe cruzar hacia el hombro izquierdo.",
+        desc: "La muñeca termina cruzando hacia el hombro contrario.",
       },
       {
         value: "nadal",
-        title: 'Lazo / "Buggy Whip"',
-        desc: "Terminación alta sobre el hombro derecho, tipo Nadal. No se penaliza el lazo.",
+        title: "Lazo (tipo Nadal)",
+        desc: "Terminación alta sobre el hombro de la mano dominante («buggy whip»). No se penaliza el lazo.",
       },
     ],
   },
@@ -84,8 +84,8 @@ const PREGUNTAS: {
       },
       {
         value: "flexionado",
-        title: "Codo flexionado (doble flexión)",
-        desc: "El codo va doblado al golpear (Djokovic, Sinner). Solo se avisa si el brazo va encogido.",
+        title: "Codo flexionado",
+        desc: "Doble flexión: el codo va doblado al golpear (Djokovic, Sinner). Solo se avisa si el brazo va encogido.",
       },
     ],
   },
@@ -109,6 +109,10 @@ export default function EstiloJuegoCard({
 }) {
   const [estilo, setEstilo] = useState<Estilo>(() => estiloDe(user));
   const [guardando, setGuardando] = useState(false);
+  const guardado = estiloDe(user);
+  const hayCambios = (Object.keys(guardado) as (keyof Estilo)[]).some(
+    (clave) => guardado[clave] !== estilo[clave],
+  );
 
   async function guardar() {
     if (guardando) return;
@@ -148,56 +152,73 @@ export default function EstiloJuegoCard({
         </div>
       </div>
 
-      {(Object.keys(PREGUNTAS) as (keyof Estilo)[]).map((clave) => {
-        const pregunta = PREGUNTAS[clave];
-        return (
-          <fieldset key={clave} className="mb-5">
-            <legend className="mb-2 text-sm font-medium text-slate-200">{pregunta.titulo}</legend>
-            <div className="grid grid-cols-1 gap-2">
-              {pregunta.opciones.map((opcion) => {
-                const activa = estilo[clave] === opcion.value;
-                return (
-                  <label
-                    key={opcion.value}
-                    className={[
-                      "cursor-pointer rounded-2xl border px-4 py-3 transition-colors duration-200",
-                      "has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-cyan-300",
-                      activa
-                        ? "border-amber-300/40 bg-amber-400/10"
-                        : "border-white/10 bg-black/20 hover:border-white/20",
-                    ].join(" ")}
-                  >
-                    <input
-                      type="radio"
-                      name={clave}
-                      value={opcion.value}
-                      checked={activa}
-                      onChange={() => setEstilo((prev) => ({ ...prev, [clave]: opcion.value }))}
-                      className="sr-only"
-                    />
-                    <span className="block text-sm font-medium text-white">{opcion.title}</span>
-                    <span className="mt-0.5 block text-xs text-slate-400">{opcion.desc}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
-        );
-      })}
+      <div className="space-y-4">
+        {(Object.keys(PREGUNTAS) as (keyof Estilo)[]).map((clave) => {
+          const pregunta = PREGUNTAS[clave];
+          const elegida = pregunta.opciones.find((opcion) => opcion.value === estilo[clave]);
+          return (
+            <fieldset key={clave}>
+              <legend className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+                {pregunta.titulo}
+              </legend>
+              {/* Selector de dos opciones; solo se explica la elegida (antes ocupaba el doble) */}
+              <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-black/30 p-1">
+                {pregunta.opciones.map((opcion) => {
+                  const activa = estilo[clave] === opcion.value;
+                  return (
+                    <label
+                      key={opcion.value}
+                      className={[
+                        "flex cursor-pointer items-center justify-center rounded-lg px-2 py-2 text-center text-sm transition-colors duration-200",
+                        "has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-cyan-300",
+                        activa
+                          ? "bg-amber-400/15 font-medium text-amber-50 ring-1 ring-amber-300/40"
+                          : "text-slate-400 hover:bg-white/5 hover:text-white",
+                      ].join(" ")}
+                    >
+                      <input
+                        type="radio"
+                        name={clave}
+                        value={opcion.value}
+                        checked={activa}
+                        onChange={() => setEstilo((prev) => ({ ...prev, [clave]: opcion.value }))}
+                        className="sr-only"
+                      />
+                      {opcion.title}
+                    </label>
+                  );
+                })}
+              </div>
+              {elegida ? (
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-400">{elegida.desc}</p>
+              ) : null}
+            </fieldset>
+          );
+        })}
+      </div>
 
       <button
         type="button"
         onClick={() => void guardar()}
-        disabled={guardando}
-        className={PRIMARY_BUTTON_CLASS}
+        disabled={guardando || !hayCambios}
+        className={
+          hayCambios || guardando
+            ? `${PRIMARY_BUTTON_CLASS} mt-5`
+            : "mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-6 py-3.5 text-sm text-slate-400"
+        }
       >
         {guardando ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
             Guardando...
           </>
+        ) : hayCambios ? (
+          "Guardar cambios"
         ) : (
-          "Guardar estilo"
+          <>
+            <Check className="h-4 w-4" strokeWidth={2} />
+            Estilo guardado
+          </>
         )}
       </button>
     </section>
