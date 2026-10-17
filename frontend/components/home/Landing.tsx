@@ -21,7 +21,7 @@ const PASOS = [
   {
     Icono: Smartphone,
     titulo: "Graba tu golpe",
-    texto: "Con el móvil, de lado y con el cuerpo entero en el encuadre.",
+    texto: "Con el móvil quieto, desde detrás o en diagonal y con el cuerpo entero en el encuadre.",
   },
   {
     Icono: UploadCloud,
@@ -190,7 +190,7 @@ export default function Landing({ zonaSubida }: { zonaSubida: ReactNode }) {
     <div className="w-full">
       <div className="mx-auto max-w-3xl text-center">
         <p className="mb-4 font-display text-sm font-medium uppercase tracking-[0.28em] text-cyan-300/80 animate-[fadeUp_0.7s_ease-out_both]">
-          Computer Vision · Biomecánica
+          Biomecánica del tenis
         </p>
         <h1 className="font-display text-4xl font-semibold leading-[1.1] tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white via-cyan-100 to-emerald-300 animate-[fadeUp_0.8s_ease-out_0.08s_both] sm:text-5xl md:text-6xl">
           Tu técnica de tenis, medida con visión artificial
@@ -215,7 +215,7 @@ export default function Landing({ zonaSubida }: { zonaSubida: ReactNode }) {
             Crear cuenta
           </Link>
         </div>
-        <p className="mt-4 text-xs text-slate-500">Sin instalar nada · Resultado en menos de 2 minutos · Informe PDF</p>
+        <p className="mt-4 text-xs text-slate-500">Sin instalar nada · Resultado en unos minutos · Informe PDF</p>
       </div>
 
       <div className="mx-auto mt-16 max-w-4xl animate-[fadeUp_0.9s_ease-out_0.3s_both]">

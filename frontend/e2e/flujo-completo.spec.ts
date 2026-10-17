@@ -41,7 +41,7 @@ async function analizarVideo(page: Page, nombre: string) {
   );
   await page.getByRole("button", { name: "Iniciar Análisis Biomecánico" }).click();
   await expect(page.getByRole("heading", { name: "Analizando tu golpe" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Resultados del Análisis" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Resultados del análisis" })).toBeVisible({
     timeout: ANALISIS_MAX_MS,
   });
   expect((await guardado).status()).toBe(201);

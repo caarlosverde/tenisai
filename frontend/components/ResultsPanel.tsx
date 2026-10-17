@@ -42,6 +42,7 @@ import {
   medidaLegible,
 } from "@/lib/consejos";
 import { guardarArchivo } from "@/lib/descargas";
+import { mensajeResumen } from "@/lib/resumen";
 import { NOMBRE_INFORME_PDF, generarInformePdf } from "@/lib/informePdf";
 
 type Pestana = "video" | "fallos";
@@ -100,6 +101,11 @@ function instantesDe(evento: FeedbackEvent): { t: number; fase_corta?: string }[
     tiempos.push(evento.timestamp_ms / 1000);
   }
   return tiempos.map((t) => ({ t, fase_corta: evento.fase_corta }));
+}
+
+/** "0,6": segundos con coma decimal, como el reproductor */
+function segundosLegibles(t: number): string {
+  return t.toFixed(1).replace(".", ",");
 }
 
 function valorLegible(evento: FeedbackEvent): string | null {
@@ -192,16 +198,21 @@ function TarjetaFallo({
               <Images className="h-3.5 w-3.5" strokeWidth={1.75} />
               Ver imagen
             </button>
+            {instantes.length > 0 ? <span className="text-xs text-slate-500">En el vídeo:</span> : null}
             {instantes.map((instante) => (
               <button
                 key={`${instante.t}-${instante.fase_corta ?? ""}`}
                 type="button"
                 onClick={() => onVerEnVideo(instante.t)}
-                aria-label={`Ver a cámara lenta el segundo ${instante.t.toFixed(1)}`}
+                aria-label={`Ver a cámara lenta el segundo ${segundosLegibles(instante.t)}`}
                 className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 font-mono text-xs text-slate-200 transition hover:border-cyan-300/50 hover:text-white"
               >
                 <PlayCircle className="h-3 w-3" strokeWidth={1.75} />
-                {instante.t.toFixed(1)} s{instante.fase_corta ? ` · ${instante.fase_corta}` : ""}
+                {segundosLegibles(instante.t)} s
+                {/* La fase ya está en la cabecera: solo se repite si es otra */}
+                {instante.fase_corta && instante.fase_corta !== evento.fase_corta
+                  ? ` · ${instante.fase_corta}`
+                  : ""}
               </button>
             ))}
           </div>
@@ -248,6 +259,10 @@ export default function ResultsPanel({
   const vistasRef = useRef<HTMLDivElement>(null);
 
   const fallos = useMemo(() => fallosOrdenados(feedback), [feedback]);
+  const resumen = useMemo(
+    () => (resumenGeneral ? mensajeResumen(resumenGeneral) : null),
+    [resumenGeneral],
+  );
   const bien = useMemo(() => aciertos(feedback), [feedback]);
   const diapositivas = useMemo(() => diapositivasDeFallos(feedback), [feedback]);
 
@@ -366,14 +381,23 @@ export default function ResultsPanel({
         >
           <div className="min-w-0">
             <p className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300/90">
-              {tipoGolpe ? `Análisis de tu ${tipoGolpe.toLowerCase()}` : "Resumen"}
+              {resumen?.golpes
+                ? `Análisis de ${resumen.golpes}`
+                : tipoGolpe
+                  ? `Análisis de tu ${tipoGolpe.toLowerCase()}`
+                  : "Resumen"}
             </p>
-            <p className="mt-2 text-sm leading-relaxed text-slate-200">{resumenGeneral.mensaje}</p>
+            {resumen?.texto ? (
+              <p className="mt-2 text-sm leading-relaxed text-slate-200">{resumen.texto}</p>
+            ) : null}
             {fallos.length > 0 ? (
               <p className="mt-2 text-sm text-white">
                 <strong>Prioridad nº 1:</strong> {fallos[0].titulo}
                 {fallos[0].consejo_corto ? ` — ${fallos[0].consejo_corto}` : ""}
               </p>
+            ) : null}
+            {resumenGeneral.adaptacion ? (
+              <p className="mt-3 text-xs text-slate-400">{resumenGeneral.adaptacion}.</p>
             ) : null}
           </div>
           {mostrarNota ? (

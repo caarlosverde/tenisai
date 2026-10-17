@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   CalendarDays,
-  Loader2,
   Pencil,
   Ruler,
   Scale,
@@ -13,6 +12,7 @@ import {
   UploadCloud,
   UserRound,
 } from "lucide-react";
+import { AvisoCarga, Bloque, TarjetaEsqueleto } from "@/components/Esqueleto";
 import EstiloJuegoCard from "@/components/perfil/EstiloJuegoCard";
 import HistorialAnalisis from "@/components/perfil/HistorialAnalisis";
 import type { AnalisisItem, ProfileUser } from "@/components/perfil/tipos";
@@ -79,15 +79,43 @@ export default function PerfilPage() {
   }
 
   if (!user || !analisis) {
+    // La silueta de la página mientras llegan los datos: el cambio no salta
     return (
-      <div className="relative flex min-h-[60vh] items-center justify-center text-white">
+      <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden text-white">
         <div className={PAGE_BACKGROUND_CLASS} />
-        <div
-          role="status"
-          className="relative z-10 inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-slate-300 backdrop-blur-md"
-        >
-          <Loader2 className="h-5 w-5 animate-spin text-cyan-300" />
-          Cargando perfil...
+        <div className="relative z-10 mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 md:px-10">
+          <AvisoCarga texto="Cargando tu perfil…" />
+          <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-3">
+              <Bloque className="h-3.5 w-28" />
+              <Bloque className="h-9 w-56" />
+              <Bloque className="h-4 w-44" />
+            </div>
+            <div className="flex gap-2">
+              <Bloque className="h-11 w-44 rounded-xl" />
+              <Bloque className="h-11 w-44 rounded-xl" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="order-last space-y-6 lg:order-first">
+              <TarjetaEsqueleto lineas={3} />
+              <TarjetaEsqueleto lineas={6} />
+            </div>
+            <div className="rounded-2xl border border-white/5 bg-zinc-900/80 p-6 lg:col-span-2">
+              <Bloque className="h-6 w-48" />
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <Bloque key={i} className="h-16 rounded-2xl" />
+                ))}
+              </div>
+              <Bloque className="mt-5 h-56 w-full rounded-2xl" />
+              <div className="mt-5 space-y-2.5">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <Bloque key={i} className="h-11 w-full rounded-xl" />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -137,7 +165,8 @@ export default function PerfilPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-1">
+          {/* En el móvil el historial va primero: es lo que se viene a ver */}
+          <div className="order-last space-y-6 lg:order-first lg:col-span-1">
             <section className={CARD_CLASS} aria-labelledby="datos-titulo">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">

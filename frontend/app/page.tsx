@@ -10,6 +10,7 @@ import {
 import { RotateCcw, UserRound } from "lucide-react";
 import AnalyzeLoader from "@/components/AnalyzeLoader";
 import Dropzone, { type TipoGolpeElegido } from "@/components/home/Dropzone";
+import UltimoAnalisis from "@/components/home/UltimoAnalisis";
 import Hero from "@/components/home/Hero";
 import Landing from "@/components/home/Landing";
 import ResultsPanel, {
@@ -394,7 +395,10 @@ export default function HomePage() {
             porDelante={progress?.por_delante}
           />
         ) : isLoggedIn ? (
-          zonaSubida
+          <>
+            {zonaSubida}
+            <UltimoAnalisis />
+          </>
         ) : (
           // Visitante: portada con la zona de subida en la sección "Pruébalo"
           <Landing zonaSubida={zonaSubida} />

@@ -21,6 +21,7 @@ import ResultsPanel, {
   RESULTS_PRIMARY_ACTION_CLASS,
   RESULTS_SECONDARY_ACTION_CLASS,
 } from "@/components/ResultsPanel";
+import { mensajeResumen } from "@/lib/resumen";
 import { API_BASE_URL, type AnalysisProgress, type FeedbackTipo } from "@/lib/api";
 import { fechaLarga } from "@/lib/formato";
 import { PAGE_BACKGROUND_CLASS, scoreBadgeClass } from "@/lib/ui";
@@ -67,16 +68,19 @@ function Aviso({
 
 /** Resumen guardado en la base de datos, para cuando no hay vídeos que mostrar. */
 function ResumenGuardado({ analisis }: { analisis: AnalisisGuardado }) {
+  // Sin la adaptación ni la nota repetidas: la nota ya está en la cabecera
+  const { texto } = mensajeResumen({
+    mensaje: analisis.resumen ?? "",
+    adaptacion: analisis.adaptacion ?? undefined,
+  });
   return (
     <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-4 shadow-xl backdrop-blur-md sm:p-6">
       <h2 className="mb-4 font-display text-sm font-medium uppercase tracking-[0.2em] text-cyan-300/90">
-        Análisis de Entrenador
+        Análisis de entrenador
       </h2>
-      {analisis.resumen ? (
-        <p className="text-sm leading-relaxed text-slate-300">{analisis.resumen}</p>
-      ) : null}
+      {texto ? <p className="text-sm leading-relaxed text-slate-300">{texto}</p> : null}
       {analisis.adaptacion ? (
-        <p className="mt-2 text-xs font-medium text-amber-200/90">{analisis.adaptacion}</p>
+        <p className="mt-2 text-xs text-slate-400">{analisis.adaptacion}.</p>
       ) : null}
 
       {analisis.evaluaciones.length > 0 ? (

@@ -73,11 +73,18 @@ export default function HistorialAnalisis({
 
   // Cronológico (el historial llega del más reciente al más antiguo)
   const cronologicos = useMemo(() => [...filtrados].reverse(), [filtrados]);
-  const chartData = cronologicos.map((item) => ({
-    fecha: fechaEje(item.fecha),
-    puntuacion: item.puntuacion,
-    tipoGolpe: item.tipoGolpe,
-  }));
+  // Un punto por análisis, en orden. Con varios el mismo día el eje solo pone la
+  // fecha en el primero (si no, salía "06 oct" repetido); la hora va en el tooltip
+  const chartData = cronologicos.map((item, indice) => {
+    const dia = fechaEje(item.fecha);
+    return {
+      n: indice,
+      etiqueta: indice > 0 && fechaEje(cronologicos[indice - 1].fecha) === dia ? "" : dia,
+      fechaCompleta: fechaCorta(item.fecha),
+      puntuacion: item.puntuacion,
+      tipoGolpe: item.tipoGolpe,
+    };
+  });
 
   const puntuaciones = cronologicos.map((a) => a.puntuacion);
   const cambio =
@@ -201,7 +208,12 @@ export default function HistorialAnalisis({
                   <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="rgba(148,163,184,0.18)" strokeDasharray="3 3" />
                     <XAxis
-                      dataKey="fecha"
+                      dataKey="n"
+                      type="number"
+                      domain={["dataMin", "dataMax"]}
+                      ticks={chartData.map((punto) => punto.n)}
+                      tickFormatter={(n: number) => chartData[n]?.etiqueta ?? ""}
+                      padding={{ left: 12, right: 12 }}
                       tick={{ fill: "#94a3b8", fontSize: 12 }}
                       axisLine={{ stroke: "rgba(148,163,184,0.25)" }}
                       tickLine={false}
@@ -220,6 +232,7 @@ export default function HistorialAnalisis({
                         borderRadius: 12,
                         color: "#e2e8f0",
                       }}
+                      labelFormatter={(n) => chartData[Number(n)]?.fechaCompleta ?? ""}
                       formatter={(value, _name, item) => {
                         const tipo = (item?.payload as { tipoGolpe?: string } | undefined)?.tipoGolpe;
                         const nota = typeof value === "number" ? `${value} / 100` : String(value);

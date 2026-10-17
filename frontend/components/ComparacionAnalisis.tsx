@@ -6,9 +6,11 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  Loader2,
   Minus,
   Pause,
   Play,
+  RotateCcw,
   TrendingDown,
   TrendingUp,
   VideoOff,
@@ -96,25 +98,44 @@ const CAMBIO_UI: Record<Cambio, { texto: string; clase: string; Icono: typeof Tr
   "sin-dato": { texto: "Solo en uno", clase: "text-slate-500", Icono: Minus },
 };
 
-/** URL del vídeo anotado de un análisis, pedida al backend. null = no disponible. */
-function useVideoProcesado(jobId: string | null): string | null | undefined {
-  const [url, setUrl] = useState<string | null | undefined>(jobId ? undefined : null);
+/**
+ * Vídeo anotado de un análisis, pedido al motor. Se distingue un análisis que no
+ * tiene vídeo (antiguo o borrado) de un motor que no responde, que se puede reintentar.
+ */
+type EstadoVideo =
+  | { tipo: "cargando" }
+  | { tipo: "listo"; url: string }
+  | { tipo: "sin-video" }
+  | { tipo: "sin-motor" };
+
+function useVideoProcesado(jobId: string | null, intento: number): EstadoVideo {
+  // Cada respuesta guarda a qué intento pertenece: mientras no llega la del intento
+  // actual (al abrir la página o al pulsar «Reintentar»), el vídeo está cargando
+  const [respuesta, setRespuesta] = useState<{ intento: number; estado: EstadoVideo } | null>(null);
   useEffect(() => {
     if (!jobId) return;
     let cancelled = false;
     fetch(`${API_BASE_URL}/resultado/${jobId}`, { cache: "no-store" })
-      .then((r) => (r.ok ? (r.json() as Promise<AnalysisProgress>) : null))
-      .then((datos) => {
-        if (!cancelled) setUrl(datos?.processed_url ?? null);
+      .then(async (r) => {
+        if (r.ok) {
+          const datos = (await r.json()) as AnalysisProgress;
+          return datos.processed_url
+            ? ({ tipo: "listo", url: datos.processed_url } as const)
+            : ({ tipo: "sin-video" } as const);
+        }
+        // 404/410: el análisis ya no tiene archivos; 5xx: el motor está caído
+        return r.status >= 500 ? ({ tipo: "sin-motor" } as const) : ({ tipo: "sin-video" } as const);
       })
-      .catch(() => {
-        if (!cancelled) setUrl(null);
+      .catch(() => ({ tipo: "sin-motor" }) as const)
+      .then((estado) => {
+        if (!cancelled) setRespuesta({ intento, estado });
       });
     return () => {
       cancelled = true;
     };
-  }, [jobId]);
-  return url;
+  }, [jobId, intento]);
+  if (!jobId) return { tipo: "sin-video" };
+  return respuesta?.intento === intento ? respuesta.estado : { tipo: "cargando" };
 }
 
 function TarjetaAnalisis({ etiqueta, analisis }: { etiqueta: string; analisis: AnalisisComparado }) {
@@ -143,21 +164,21 @@ function TarjetaAnalisis({ etiqueta, analisis }: { etiqueta: string; analisis: A
 
 function VideoComparado({
   etiqueta,
-  url,
+  estado,
   videoRef,
   onCambioEstado,
 }: {
   etiqueta: string;
-  url: string | null | undefined;
+  estado: EstadoVideo;
   videoRef: RefObject<HTMLVideoElement | null>;
   onCambioEstado: () => void;
 }) {
   return (
     <figure className="overflow-hidden rounded-2xl border border-white/10 bg-black/40">
-      {url ? (
+      {estado.tipo === "listo" ? (
         <video
           ref={videoRef}
-          src={url}
+          src={estado.url}
           muted
           playsInline
           controls
@@ -170,8 +191,11 @@ function VideoComparado({
         />
       ) : (
         <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 text-sm text-slate-500">
-          {url === undefined ? (
-            "Cargando vídeo..."
+          {estado.tipo === "cargando" ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin text-cyan-300/70" strokeWidth={1.75} />
+              Cargando vídeo…
+            </>
           ) : (
             <>
               <VideoOff className="h-6 w-6" strokeWidth={1.5} />
@@ -192,8 +216,11 @@ export default function ComparacionAnalisis({
   antes: AnalisisComparado;
   despues: AnalisisComparado;
 }) {
-  const urlAntes = useVideoProcesado(antes.jobId);
-  const urlDespues = useVideoProcesado(despues.jobId);
+  const [intento, setIntento] = useState(0);
+  const videoAntes = useVideoProcesado(antes.jobId, intento);
+  const videoDespues = useVideoProcesado(despues.jobId, intento);
+  const urlAntes = videoAntes.tipo === "listo" ? videoAntes.url : null;
+  const urlDespues = videoDespues.tipo === "listo" ? videoDespues.url : null;
   const refAntes = useRef<HTMLVideoElement>(null);
   const refDespues = useRef<HTMLVideoElement>(null);
   const [reproduciendo, setReproduciendo] = useState(false);
@@ -210,8 +237,8 @@ export default function ComparacionAnalisis({
     iguales: filas.filter((f) => f.cambio === "igual").length,
   };
   const ambosVideos = Boolean(urlAntes && urlDespues);
-  const algunoNoDisponible =
-    urlAntes !== undefined && urlDespues !== undefined && !ambosVideos;
+  const sinMotor = videoAntes.tipo === "sin-motor" || videoDespues.tipo === "sin-motor";
+  const sinVideo = videoAntes.tipo === "sin-video" || videoDespues.tipo === "sin-video";
 
   // Sincroniza el botón si se pausa o termina un vídeo desde sus propios controles
   function actualizarReproduciendo() {
@@ -319,18 +346,36 @@ export default function ComparacionAnalisis({
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <VideoComparado
               etiqueta={`Antes · ${fechaCorta(antes.fecha)}`}
-              url={urlAntes}
+              estado={videoAntes}
               videoRef={refAntes}
               onCambioEstado={actualizarReproduciendo}
             />
             <VideoComparado
               etiqueta={`Después · ${fechaCorta(despues.fecha)}`}
-              url={urlDespues}
+              estado={videoDespues}
               videoRef={refDespues}
               onCambioEstado={actualizarReproduciendo}
             />
           </div>
-          {algunoNoDisponible ? (
+          {sinMotor ? (
+            <div
+              role="status"
+              className="mt-3 flex flex-col gap-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <span>
+                No se pudo conectar con el motor de análisis: los vídeos no se pueden mostrar
+                ahora. La comparación de aspectos sigue disponible.
+              </span>
+              <button
+                type="button"
+                onClick={() => setIntento((n) => n + 1)}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-white transition hover:bg-white/10"
+              >
+                <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Reintentar
+              </button>
+            </div>
+          ) : sinVideo ? (
             <p className="mt-3 text-xs text-slate-500">
               Los análisis anteriores a que TenisAI guardara los vídeos solo conservan el resumen.
             </p>
@@ -350,7 +395,32 @@ export default function ComparacionAnalisis({
                 {resumen.empeoran === 1 ? "empeora" : "empeoran"} · {resumen.iguales}{" "}
                 {resumen.iguales === 1 ? "se mantiene" : "se mantienen"}
               </p>
-              <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
+              {/* En el móvil, una tarjeta por aspecto: la tabla no cabe y se cortaba */}
+              <ul className="mt-4 space-y-2 sm:hidden">
+                {filas.map((fila) => {
+                  const ui = CAMBIO_UI[fila.cambio];
+                  return (
+                    <li key={fila.clave} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-medium text-white">{fila.titulo}</p>
+                        <span className={`inline-flex shrink-0 items-center gap-1 text-xs font-medium ${ui.clase}`}>
+                          <ui.Icono className="h-4 w-4" strokeWidth={1.75} />
+                          {ui.texto}
+                        </span>
+                      </div>
+                      {fila.fase ? (
+                        <p className="mt-0.5 text-[11px] uppercase tracking-wider text-slate-500">{fila.fase}</p>
+                      ) : null}
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        <EstadoEvaluacion tipo={fila.antes} />
+                        <ArrowRight className="h-3.5 w-3.5 text-slate-500" aria-label="después" />
+                        <EstadoEvaluacion tipo={fila.despues} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-4 hidden overflow-x-auto rounded-2xl border border-white/10 sm:block">
                 <table className="w-full min-w-[34rem] text-left text-sm">
                   <thead className="bg-white/5 text-xs uppercase tracking-wide text-slate-400">
                     <tr>

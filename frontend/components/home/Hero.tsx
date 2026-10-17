@@ -9,7 +9,7 @@ export default function Hero({
   return (
     <div className="mx-auto max-w-3xl text-center">
       <p className="mb-4 font-display text-sm font-medium uppercase tracking-[0.28em] text-cyan-300/80 animate-[fadeUp_0.7s_ease-out_both]">
-        Computer Vision · Biomecánica
+        Visión artificial · Biomecánica
       </p>
       <h1
         className={[
@@ -19,22 +19,18 @@ export default function Hero({
           compact || analyzing ? "text-3xl sm:text-4xl" : "text-4xl sm:text-5xl md:text-6xl",
         ].join(" ")}
       >
-        {analyzing
-          ? "Analizando tu golpe"
-          : compact
-            ? "Resultados del Análisis"
-            : "Análisis Biomecánico Avanzado"}
+        {analyzing ? "Analizando tu golpe" : compact ? "Resultados del análisis" : "Analiza tu golpe"}
       </h1>
       {!compact && !analyzing ? (
         <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-slate-300/85 sm:text-lg animate-[fadeUp_0.8s_ease-out_0.16s_both]">
-          Sube un vídeo de tu golpe y TenisAI extrae la pose, mide ángulos articulares
-          y revela la dinámica del movimiento con precisión de laboratorio.
+          Sube un vídeo y TenisAI detecta tu postura fotograma a fotograma, mide los
+          ángulos de cada fase del golpe y te dice qué corregir primero.
         </p>
       ) : (
         <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-slate-400 animate-[fadeUp_0.8s_ease-out_0.16s_both]">
           {analyzing
-            ? "El motor biomecánico está trabajando. Esto suele tardar menos de dos minutos."
-            : "Compara el vídeo original con la anotación biomecánica generada por el motor."}
+            ? "El motor está midiendo tu golpe fotograma a fotograma. Suele tardar entre uno y tres minutos."
+            : "Mira tu golpe a cámara lenta con el esqueleto y repasa cada fallo con su ejercicio."}
         </p>
       )}
     </div>

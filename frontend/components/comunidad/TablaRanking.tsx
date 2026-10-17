@@ -15,7 +15,7 @@ function Fila({ fila, separada = false }: { fila: FilaRanking; separada?: boolea
         separada ? "border-t-2 border-dashed border-white/10" : "",
       ].join(" ")}
     >
-      <td className="px-3 py-3 text-center font-mono tabular-nums text-slate-300 sm:px-4">
+      <td className="whitespace-nowrap px-2 py-3 text-center font-mono tabular-nums text-slate-300 sm:px-4">
         {fila.posicion <= 3 ? (
           <span className="inline-flex items-center gap-1">
             <Medal className={`h-4 w-4 ${MEDALLAS[fila.posicion - 1]}`} strokeWidth={2} />
@@ -25,8 +25,10 @@ function Fila({ fila, separada = false }: { fila: FilaRanking; separada?: boolea
           fila.posicion
         )}
       </td>
-      <td className="px-3 py-3 sm:px-4">
-        <div className="flex items-center gap-3">
+      {/* w-full + max-w-0: la celda ocupa lo que sobra y el nombre se recorta con "…"
+          en vez de empujar las demás columnas fuera de la tabla en el móvil */}
+      <td className="w-full max-w-0 px-2 py-3 sm:px-4">
+        <div className="flex items-center gap-2.5 sm:gap-3">
           <Avatar nombre={fila.nombre} semilla={fila.username} tamano="sm" />
           <div className="min-w-0">
             {fila.enlace && !fila.esYo ? (
@@ -43,7 +45,7 @@ function Fila({ fila, separada = false }: { fila: FilaRanking; separada?: boolea
           </div>
         </div>
       </td>
-      <td className="px-3 py-3 text-right sm:px-4">
+      <td className="whitespace-nowrap px-2 py-3 text-right sm:px-4">
         <span className="font-mono text-base font-semibold tabular-nums text-white">{fila.puntos}</span>
         {fila.provisional ? (
           <span
@@ -57,7 +59,7 @@ function Fila({ fila, separada = false }: { fila: FilaRanking; separada?: boolea
       <td className="hidden px-3 py-3 text-right font-mono tabular-nums text-slate-300 sm:table-cell sm:px-4">
         {fila.partidos}
       </td>
-      <td className="px-3 py-3 text-right font-mono tabular-nums text-slate-300 sm:px-4">
+      <td className="whitespace-nowrap px-2 py-3 text-right font-mono tabular-nums text-slate-300 sm:px-4">
         {fila.victorias}-{derrotas}
       </td>
       <td className="hidden px-3 py-3 text-right font-mono tabular-nums text-slate-400 md:table-cell md:px-4">
@@ -82,11 +84,11 @@ export default function TablaRanking({
         <caption className="sr-only">{titulo}</caption>
         <thead className="bg-white/[0.03] text-xs uppercase tracking-wider text-slate-400">
           <tr>
-            <th scope="col" className="w-14 px-3 py-3 text-center font-medium sm:px-4">#</th>
-            <th scope="col" className="px-3 py-3 text-left font-medium sm:px-4">Jugador</th>
-            <th scope="col" className="px-3 py-3 text-right font-medium sm:px-4">Puntos</th>
+            <th scope="col" className="w-12 px-2 py-3 text-center font-medium sm:w-14 sm:px-4">#</th>
+            <th scope="col" className="px-2 py-3 text-left font-medium sm:px-4">Jugador</th>
+            <th scope="col" className="px-2 py-3 text-right font-medium sm:px-4">Puntos</th>
             <th scope="col" className="hidden px-3 py-3 text-right font-medium sm:table-cell sm:px-4">PJ</th>
-            <th scope="col" className="px-3 py-3 text-right font-medium sm:px-4">
+            <th scope="col" className="px-2 py-3 text-right font-medium sm:px-4">
               <abbr title="Victorias y derrotas" className="no-underline">V-D</abbr>
             </th>
             <th scope="col" className="hidden px-3 py-3 text-right font-medium md:table-cell md:px-4">% V</th>

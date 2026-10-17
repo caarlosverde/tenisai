@@ -1114,7 +1114,9 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
                         aria-hidden
                         className={`h-2 w-2 shrink-0 rounded-full ${hit.tipo === "alerta" ? "bg-rose-400" : "bg-amber-400"}`}
                       />
-                      <span className="font-mono text-slate-500">{hit.t.toFixed(1)} s</span>
+                      <span className="shrink-0 whitespace-nowrap font-mono text-slate-500">
+                        {hit.t.toFixed(1).replace(".", ",")} s
+                      </span>
                       <span className="truncate">{hit.titulo}</span>
                     </button>
                   </li>
