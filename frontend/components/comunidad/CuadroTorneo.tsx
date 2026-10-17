@@ -20,18 +20,18 @@ function Lado({
   vacio: string;
 }) {
   if (!inscrito) {
-    return <div className="truncate px-3 py-2 text-xs italic text-slate-600">{vacio}</div>;
+    return <div className="truncate px-3 py-2 text-xs italic text-slate-400">{vacio}</div>;
   }
   return (
     <div
       className={[
         "flex items-center gap-2 px-3 py-2 text-sm",
-        gana ? "font-semibold text-white" : pierde ? "text-slate-500 line-through decoration-slate-600" : "text-slate-200",
+        gana ? "font-semibold text-white" : pierde ? "text-slate-400 line-through decoration-slate-600" : "text-slate-200",
         inscrito.esMia ? "bg-cyan-400/[0.07]" : "",
       ].join(" ")}
     >
       {inscrito.semilla ? (
-        <span className="w-5 shrink-0 text-right font-mono text-[11px] text-slate-500">{inscrito.semilla}</span>
+        <span className="w-5 shrink-0 text-right font-mono text-[11px] text-slate-400">{inscrito.semilla}</span>
       ) : null}
       <span className="min-w-0 flex-1 truncate">
         {inscrito.jugadores.map((j, i) => (
@@ -81,7 +81,7 @@ function Cruce({
         />
       </div>
       {cruce.marcador || bye || cruce.tipo === "incomparecencia" ? (
-        <p className="mt-1 px-1 text-[11px] text-slate-500">
+        <p className="mt-1 px-1 text-[11px] text-slate-400">
           {bye
             ? "Pasa directamente"
             : cruce.tipo === "incomparecencia"
@@ -141,7 +141,7 @@ export default function CuadroTorneo({
               ].join(" ")}
             >
               <Crown className={`mx-auto mb-1 h-5 w-5 ${campeon ? "text-amber-300" : "text-slate-600"}`} />
-              <p className={campeon ? "text-sm font-semibold text-white" : "text-xs text-slate-500"}>
+              <p className={campeon ? "text-sm font-semibold text-white" : "text-xs text-slate-400"}>
                 {campeon ? nombreInscrito(campeon) : "Por decidir"}
               </p>
             </div>

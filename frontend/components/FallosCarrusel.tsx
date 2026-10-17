@@ -344,7 +344,7 @@ export default function FallosCarrusel({
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
-      <p className="mt-2 text-center text-xs text-slate-500">
+      <p className="mt-2 text-center text-xs text-slate-400">
         Desliza la imagen o usa las flechas del teclado para pasar de un fallo a otro.
       </p>
     </div>

@@ -80,7 +80,7 @@ function compararEvaluaciones(antes: EvaluacionGuardada[], despues: EvaluacionGu
 }
 
 function EstadoEvaluacion({ tipo }: { tipo?: string }) {
-  if (!tipo) return <span className="text-xs text-slate-500">—</span>;
+  if (!tipo) return <span className="text-xs text-slate-400">—</span>;
   const estilo = FEEDBACK_STYLES[tipo as FeedbackTipo] ?? FEEDBACK_STYLES.mejora;
   const { Icono } = estilo;
   return (
@@ -95,7 +95,7 @@ const CAMBIO_UI: Record<Cambio, { texto: string; clase: string; Icono: typeof Tr
   mejora: { texto: "Mejora", clase: "text-emerald-300", Icono: TrendingUp },
   empeora: { texto: "Empeora", clase: "text-rose-300", Icono: TrendingDown },
   igual: { texto: "Igual", clase: "text-slate-400", Icono: Minus },
-  "sin-dato": { texto: "Solo en uno", clase: "text-slate-500", Icono: Minus },
+  "sin-dato": { texto: "Solo en uno", clase: "text-slate-400", Icono: Minus },
 };
 
 /**
@@ -190,7 +190,7 @@ function VideoComparado({
           className="aspect-video w-full bg-black object-contain"
         />
       ) : (
-        <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 text-sm text-slate-500">
+        <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 text-sm text-slate-400">
           {estado.tipo === "cargando" ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin text-cyan-300/70" strokeWidth={1.75} />
@@ -376,7 +376,7 @@ export default function ComparacionAnalisis({
               </button>
             </div>
           ) : sinVideo ? (
-            <p className="mt-3 text-xs text-slate-500">
+            <p className="mt-3 text-xs text-slate-400">
               Los análisis anteriores a que TenisAI guardara los vídeos solo conservan el resumen.
             </p>
           ) : null}
@@ -409,7 +409,7 @@ export default function ComparacionAnalisis({
                         </span>
                       </div>
                       {fila.fase ? (
-                        <p className="mt-0.5 text-[11px] uppercase tracking-wider text-slate-500">{fila.fase}</p>
+                        <p className="mt-0.5 text-[11px] uppercase tracking-wider text-slate-400">{fila.fase}</p>
                       ) : null}
                       <div className="mt-2.5 flex flex-wrap items-center gap-2">
                         <EstadoEvaluacion tipo={fila.antes} />

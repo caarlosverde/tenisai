@@ -128,7 +128,7 @@ export default function AnalyzeLoader({
                       ? "border-cyan-300/40 bg-cyan-400/15 text-cyan-100"
                       : done
                         ? "border-emerald-400/40 bg-emerald-400/15 text-emerald-200"
-                        : "border-white/10 bg-white/5 text-slate-500",
+                        : "border-white/10 bg-white/5 text-slate-400",
                   ].join(" ")}
                 >
                   {done ? (
@@ -142,7 +142,7 @@ export default function AnalyzeLoader({
                 <span
                   className={[
                     "text-sm",
-                    current ? "font-medium text-white" : done ? "text-emerald-100/90" : "text-slate-500",
+                    current ? "font-medium text-white" : done ? "text-emerald-100/90" : "text-slate-400",
                   ].join(" ")}
                 >
                   {label}
@@ -168,7 +168,7 @@ export default function AnalyzeLoader({
             {barraAncho.toFixed(0)}%
           </p>
         ) : (
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-slate-400">
             {esperandoTurno
               ? "Empezará automáticamente cuando llegue su turno. No cierres la pestaña."
               : "Esto suele tardar unos segundos. No cierres la pestaña."}

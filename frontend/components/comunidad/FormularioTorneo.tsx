@@ -215,7 +215,7 @@ export default function FormularioTorneo({ ciudadInicial }: { ciudadInicial: str
       </label>
 
       <div className="flex flex-col-reverse gap-3 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-400">
           Eliminatoria directa. Al cerrar la inscripción sorteas el cuadro con cabezas de serie por
           puntos, y después anotas los resultados.
         </p>

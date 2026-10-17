@@ -990,7 +990,7 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
                   ))
                 : null}
             </div>
-            <p className="mt-1.5 text-[11px] text-slate-500">
+            <p className="mt-1.5 text-[11px] text-slate-400">
               Bandas de color: fases del golpe. Puntos: fallos (clic para saltar).
             </p>
           </div>
@@ -1002,7 +1002,7 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
             </summary>
             <div className="flex flex-col gap-2 px-3 pb-3">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Capas</span>
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Capas</span>
                 <button type="button" disabled={!showCanvas} onClick={() => toggleLayer("skeleton")} className={chipClass(layers.skeleton && showCanvas, !showCanvas)}>
                   Esqueleto
                 </button>
@@ -1014,7 +1014,7 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
                 </button>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Vídeo</span>
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Vídeo</span>
                 <button type="button" onClick={() => changeMode("interactive")} className={chipClass(mode === "interactive")}>
                   Original + esqueleto en alta resolución
                 </button>
@@ -1032,7 +1032,7 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
         {/* Panel del entrenador: qué está pasando en cada instante */}
         <aside aria-label="Panel del entrenador" className="flex flex-col gap-3">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Fase actual</p>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Fase actual</p>
             <p className="mt-1 font-display text-lg font-semibold text-white">
               {faseActual?.label ?? "Entre golpes"}
             </p>
@@ -1049,7 +1049,7 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
                 : "border-white/10 bg-white/5",
             ].join(" ")}
           >
-            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">En este momento</p>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">En este momento</p>
             {banner ? (
               <div className="mt-2">
                 <p className="flex items-start gap-2 font-display text-base font-semibold text-white">
@@ -1064,13 +1064,13 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
                 ) : null}
                 <dl className="mt-3 grid grid-cols-2 gap-2 text-center">
                   <div className="rounded-xl bg-black/30 px-2 py-2">
-                    <dt className="text-[10px] uppercase tracking-wider text-slate-500">Tu medida</dt>
+                    <dt className="text-[10px] uppercase tracking-wider text-slate-400">Tu medida</dt>
                     <dd className="font-mono text-sm font-semibold text-rose-100">
                       {medidaLegible(banner.categoria, banner.valor_medido) ?? "—"}
                     </dd>
                   </div>
                   <div className="rounded-xl bg-black/30 px-2 py-2">
-                    <dt className="text-[10px] uppercase tracking-wider text-slate-500">Objetivo</dt>
+                    <dt className="text-[10px] uppercase tracking-wider text-slate-400">Objetivo</dt>
                     <dd className="text-xs font-semibold text-emerald-100">
                       {banner.objetivo.replace(/^Objetivo:\s*/, "") || "—"}
                     </dd>
@@ -1099,7 +1099,7 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
 
           {faultsPorTiempo.length > 0 ? (
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
                 Momentos clave ({faultsPorTiempo.length})
               </p>
               <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto pr-1">
@@ -1114,7 +1114,7 @@ const AnalysisPlayer = forwardRef<AnalysisPlayerHandle, AnalysisPlayerProps>(
                         aria-hidden
                         className={`h-2 w-2 shrink-0 rounded-full ${hit.tipo === "alerta" ? "bg-rose-400" : "bg-amber-400"}`}
                       />
-                      <span className="shrink-0 whitespace-nowrap font-mono text-slate-500">
+                      <span className="shrink-0 whitespace-nowrap font-mono text-slate-400">
                         {hit.t.toFixed(1).replace(".", ",")} s
                       </span>
                       <span className="truncate">{hit.titulo}</span>

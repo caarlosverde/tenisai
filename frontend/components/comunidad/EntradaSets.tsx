@@ -59,7 +59,7 @@ export default function EntradaSets({
                 aria-label={etiquetas[0](i + 1)}
                 className={INPUT_JUEGOS}
               />
-              <span className="text-center text-slate-500">–</span>
+              <span className="text-center text-slate-400">–</span>
               <input
                 inputMode="numeric"
                 value={b}
@@ -89,7 +89,7 @@ export default function EntradaSets({
           </button>
         </div>
       </div>
-      <p className="mt-2 text-xs text-slate-500">
+      <p className="mt-2 text-xs text-slate-400">
         Sets a 6 juegos (7-5 o 7-6 con tie-break). El set decisivo puede ser un super tie-break a 10
         puntos (por ejemplo 10-8).
       </p>

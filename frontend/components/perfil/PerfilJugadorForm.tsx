@@ -147,7 +147,7 @@ export default function PerfilJugadorForm({
               </label>
             ))}
           </div>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-slate-400">
             Con el perfil público, quien no es tu amigo ve tu nombre con la inicial del apellido.
           </p>
         </fieldset>
@@ -197,7 +197,7 @@ export default function PerfilJugadorForm({
             className={`${AUTH_INPUT_CLASS} resize-none`}
             {...campo("bio")}
           />
-          <span className="mt-1 block text-right text-xs text-slate-500">
+          <span className="mt-1 block text-right text-xs text-slate-400">
             {form.bio.length}/{LIMITES_PERFIL.bio}
           </span>
         </label>

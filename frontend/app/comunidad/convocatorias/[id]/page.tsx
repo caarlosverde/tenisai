@@ -143,7 +143,7 @@ export default async function ConvocatoriaPage({ params }: Props) {
               <p className="text-slate-400">Lo publica</p>
               <p>
                 <NombreJugador jugador={c.creador} />{" "}
-                <span className="font-mono text-xs text-slate-500">{c.creador.puntos} pts</span>
+                <span className="font-mono text-xs text-slate-400">{c.creador.puntos} pts</span>
               </p>
             </div>
           </div>
@@ -162,12 +162,12 @@ export default async function ConvocatoriaPage({ params }: Props) {
           <AccionesConvocatoria convocatoria={c} />
         </div>
         {c.miSolicitud === "pendiente" ? (
-          <p className="mt-3 text-xs text-slate-500">
+          <p className="mt-3 text-xs text-slate-400">
             Has pedido plaza. {c.creador.nombre} todavía no ha respondido.
           </p>
         ) : null}
         {c.miSolicitud === "rechazada" ? (
-          <p className="mt-3 text-xs text-slate-500">No hay plaza para ti en este partido.</p>
+          <p className="mt-3 text-xs text-slate-400">No hay plaza para ti en este partido.</p>
         ) : null}
       </section>
 
@@ -183,7 +183,7 @@ export default async function ConvocatoriaPage({ params }: Props) {
             {Array.from({ length: c.libres }, (_, i) => (
               <li
                 key={`libre-${i}`}
-                className="flex items-center gap-3 rounded-2xl border border-dashed border-white/10 px-4 py-3 text-sm text-slate-500"
+                className="flex items-center gap-3 rounded-2xl border border-dashed border-white/10 px-4 py-3 text-sm text-slate-400"
               >
                 <span className="flex h-10 w-10 items-center justify-center rounded-full border border-dashed border-white/15">
                   <UserPlus className="h-4 w-4" />

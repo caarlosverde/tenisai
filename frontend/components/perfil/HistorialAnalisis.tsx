@@ -39,7 +39,7 @@ function Estadistica({ etiqueta, valor, detalle }: { etiqueta: string; valor: st
     <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
       <p className="text-xs uppercase tracking-wider text-slate-400">{etiqueta}</p>
       <p className="mt-1 font-display text-xl font-semibold text-white">{valor}</p>
-      {detalle ? <p className="text-xs text-slate-500">{detalle}</p> : null}
+      {detalle ? <p className="text-xs text-slate-400">{detalle}</p> : null}
     </div>
   );
 }

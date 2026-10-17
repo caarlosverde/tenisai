@@ -284,7 +284,7 @@ export default async function JugadorPage({ params }: Props) {
                 </p>
               ) : null}
             </div>
-            <p className="mt-3 text-xs text-slate-500">
+            <p className="mt-3 text-xs text-slate-400">
               {m.partidos === 0
                 ? "Sin partidos confirmados"
                 : `${cantidad(m.partidos, "partido", "partidos")} · ${m.victorias}-${m.partidos - m.victorias} · ${porcentajeVictorias(m.victorias, m.partidos)} de victorias${esProvisional(m.partidos) ? " · provisional" : ""}`}

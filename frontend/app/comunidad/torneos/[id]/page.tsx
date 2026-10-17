@@ -132,7 +132,7 @@ export default async function TorneoPage({ params }: Props) {
         <div className="mt-5 border-t border-white/10 pt-5">
           <AccionesTorneo torneo={t} />
           {t.esOrganizador && t.estado === "en_curso" ? (
-            <p className="mt-3 text-xs text-slate-500">
+            <p className="mt-3 text-xs text-slate-400">
               Anota cada resultado desde el cuadro: el ganador pasa solo a la siguiente ronda y el
               partido cuenta para el ranking.
             </p>
@@ -164,7 +164,7 @@ export default async function TorneoPage({ params }: Props) {
                 key={i.id}
                 className={["flex items-center gap-3 px-4 py-3 text-sm", i.esMia ? "bg-cyan-400/[0.06]" : "bg-black/20"].join(" ")}
               >
-                <span className="w-6 shrink-0 text-right font-mono text-xs text-slate-500">{i.semilla ?? ""}</span>
+                <span className="w-6 shrink-0 text-right font-mono text-xs text-slate-400">{i.semilla ?? ""}</span>
                 <span className="min-w-0 flex-1 truncate text-white">
                   {i.jugadores.map((j, n) => (
                     <span key={j.username ?? n}>

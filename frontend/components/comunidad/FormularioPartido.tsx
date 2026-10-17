@@ -212,7 +212,7 @@ export default function FormularioPartido({ inicial }: { inicial: InicialPartido
       </fieldset>
 
       <div className="flex flex-col-reverse gap-3 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-400">
           {dobles ? "Uno de los rivales" : "Tu rival"} tendrá que confirmar el resultado para que
           cuente en el ranking.
         </p>

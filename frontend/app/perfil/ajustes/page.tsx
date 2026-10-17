@@ -422,7 +422,7 @@ export default function AjustesPage() {
                 <Download className="h-4 w-4" strokeWidth={1.75} />
                 Descargar mis datos
               </a>
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="mt-3 text-xs text-slate-400">
                 Más información en la{" "}
                 <Link href="/privacidad" className="text-cyan-300 underline-offset-4 hover:underline">
                   política de privacidad

@@ -29,7 +29,7 @@ export default function Error({
           al inicio.
         </p>
         {error.digest ? (
-          <p className="mt-2 font-mono text-xs text-slate-500">Referencia: {error.digest}</p>
+          <p className="mt-2 font-mono text-xs text-slate-400">Referencia: {error.digest}</p>
         ) : null}
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <button

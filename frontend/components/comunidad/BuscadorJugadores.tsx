@@ -65,7 +65,7 @@ export default function BuscadorJugadores() {
 
       <div aria-live="polite" className="mt-3">
         {mostrar.tipo === "inicio" ? (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-400">
             Los perfiles privados solo aparecen si escribes su nombre de usuario exacto.
           </p>
         ) : null}
@@ -96,7 +96,7 @@ export default function BuscadorJugadores() {
                       @{j.username}
                       {detalles ? ` · ${detalles}` : ""}
                       {!visible ? (
-                        <span className="ml-1.5 inline-flex items-center gap-1 text-slate-500">
+                        <span className="ml-1.5 inline-flex items-center gap-1 text-slate-400">
                           <Lock className="h-3 w-3" /> Perfil privado
                         </span>
                       ) : null}

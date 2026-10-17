@@ -133,7 +133,7 @@ export default function ResultadoCruce({
                 <span className="text-amber-200">{marcador.error}</span>
               ) : null}
             </p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-400">
               El resultado cuenta para el ranking de los jugadores.
             </p>
           </>

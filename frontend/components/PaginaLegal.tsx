@@ -19,7 +19,7 @@ export default function PaginaLegal({ titulo, children }: { titulo: string; chil
         <h1 className="font-display text-3xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white via-cyan-100 to-emerald-300 sm:text-4xl">
           {titulo}
         </h1>
-        <p className="!mt-2 text-sm text-slate-500">Última actualización: {ULTIMA_ACTUALIZACION}</p>
+        <p className="!mt-2 text-sm text-slate-400">Última actualización: {ULTIMA_ACTUALIZACION}</p>
         {children}
       </article>
     </div>

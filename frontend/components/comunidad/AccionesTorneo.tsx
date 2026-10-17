@@ -158,7 +158,7 @@ export default function AccionesTorneo({ torneo: t }: { torneo: TorneoVista }) {
         {dobles ? (
           <div className="mt-4">
             <SelectorJugador etiqueta="Tu pareja" valor={pareja} onCambio={setPareja} excluir={[]} />
-            <p className="mt-2 text-xs text-slate-500">Tu pareja tendrá que aceptar para que la inscripción cuente.</p>
+            <p className="mt-2 text-xs text-slate-400">Tu pareja tendrá que aceptar para que la inscripción cuente.</p>
           </div>
         ) : null}
       </ConfirmDialog>

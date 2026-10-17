@@ -153,7 +153,7 @@ export default function FormularioConvocatoria({
                 </label>
               ))}
             </div>
-            <p className="mt-1.5 text-xs text-slate-500">
+            <p className="mt-1.5 text-xs text-slate-400">
               {plazas === 3 ? "Vas solo: buscas pareja y dos rivales." : textoPlazas(plazas)}
             </p>
           </fieldset>
@@ -235,7 +235,7 @@ export default function FormularioConvocatoria({
       </label>
 
       <div className="flex flex-col-reverse gap-3 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-400">
           Lo verán tus amigos y, si tu perfil es público, cualquier jugador. Tú decides a quién das
           plaza.
         </p>

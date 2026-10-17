@@ -86,7 +86,7 @@ export default async function PartidosPage() {
         {historial.length === 0 ? (
           <Vacio icono={Swords}>
             <p>Aún no tienes partidos confirmados.</p>
-            <p className="max-w-md text-xs text-slate-500">
+            <p className="max-w-md text-xs text-slate-400">
               Registra un partido con un amigo o con un jugador de perfil público. Cuando tu rival
               confirme el resultado, sumará puntos en el ranking.
             </p>

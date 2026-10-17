@@ -31,7 +31,7 @@ function Nombre({ jugador }: { jugador: JugadorResumen }) {
       </Link>
     );
   }
-  return <span className={jugador.username ? undefined : "italic text-slate-500"}>{texto}</span>;
+  return <span className={jugador.username ? undefined : "italic text-slate-400"}>{texto}</span>;
 }
 
 function FilaEquipo({
@@ -48,7 +48,7 @@ function FilaEquipo({
       <div className={["min-w-0 flex-1 text-sm", gana ? "font-semibold text-white" : "text-slate-300"].join(" ")}>
         {jugadores.map((j, i) => (
           <span key={j.username ?? `borrado-${i}`}>
-            {i > 0 ? <span className="text-slate-500"> / </span> : null}
+            {i > 0 ? <span className="text-slate-400"> / </span> : null}
             <Nombre jugador={j} />
           </span>
         ))}

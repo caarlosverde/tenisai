@@ -41,7 +41,7 @@ function Fila({ fila, separada = false }: { fila: FilaRanking; separada?: boolea
                 {fila.esYo ? <span className="ml-1.5 text-xs font-normal text-cyan-300">(tú)</span> : null}
               </span>
             )}
-            <span className="block truncate text-xs text-slate-500">{fila.ciudad ?? `@${fila.username}`}</span>
+            <span className="block truncate text-xs text-slate-400">{fila.ciudad ?? `@${fila.username}`}</span>
           </div>
         </div>
       </td>

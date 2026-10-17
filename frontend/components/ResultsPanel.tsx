@@ -198,7 +198,7 @@ function TarjetaFallo({
               <Images className="h-3.5 w-3.5" strokeWidth={1.75} />
               Ver imagen
             </button>
-            {instantes.length > 0 ? <span className="text-xs text-slate-500">En el vídeo:</span> : null}
+            {instantes.length > 0 ? <span className="text-xs text-slate-400">En el vídeo:</span> : null}
             {instantes.map((instante) => (
               <button
                 key={`${instante.t}-${instante.fase_corta ?? ""}`}

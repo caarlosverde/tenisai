@@ -151,7 +151,7 @@ function EjemploResultado() {
             </li>
           ))}
         </ul>
-        <p className="text-xs text-slate-500">Ejemplo ilustrativo del tipo de resultado que obtendrás.</p>
+        <p className="text-xs text-slate-400">Ejemplo ilustrativo del tipo de resultado que obtendrás.</p>
       </div>
     </div>
   );
@@ -215,7 +215,7 @@ export default function Landing({ zonaSubida }: { zonaSubida: ReactNode }) {
             Crear cuenta
           </Link>
         </div>
-        <p className="mt-4 text-xs text-slate-500">Sin instalar nada · Resultado en unos minutos · Informe PDF</p>
+        <p className="mt-4 text-xs text-slate-400">Sin instalar nada · Resultado en unos minutos · Informe PDF</p>
       </div>
 
       <div className="mx-auto mt-16 max-w-4xl animate-[fadeUp_0.9s_ease-out_0.3s_both]">
@@ -230,7 +230,7 @@ export default function Landing({ zonaSubida }: { zonaSubida: ReactNode }) {
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/25 bg-cyan-400/10 text-cyan-200">
                   <Icono className="h-5 w-5" strokeWidth={1.75} aria-hidden />
                 </span>
-                <span className="font-mono text-xs text-slate-500">Paso {i + 1}</span>
+                <span className="font-mono text-xs text-slate-400">Paso {i + 1}</span>
               </div>
               <p className="mt-4 font-display text-lg font-semibold text-white">{titulo}</p>
               <p className="mt-1 text-sm leading-relaxed text-slate-400">{texto}</p>

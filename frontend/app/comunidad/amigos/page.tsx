@@ -134,7 +134,7 @@ export default async function AmigosPage() {
                 relacion="amigos"
                 completo
                 extra={
-                  <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                  <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
                     <span>
                       Individual <span className="font-mono text-slate-300">{p.puntosIndividual}</span>
                     </span>

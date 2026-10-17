@@ -98,7 +98,7 @@ export default async function ConvocatoriasPage({ searchParams }: PageProps<"/co
               href={(c) => url(modalidad, c)}
             />
           ) : (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               <Link href="/perfil/ajustes#perfil-jugador" className="text-cyan-300 hover:underline">
                 Añade tu ciudad
               </Link>{" "}

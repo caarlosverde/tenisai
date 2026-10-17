@@ -174,7 +174,7 @@ function RegistroForm() {
 
         <div className="mt-2 border-t border-white/5 pt-4 sm:col-span-2">
           <h2 className="text-sm font-semibold text-slate-200">Datos físicos</h2>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <p className="mt-0.5 text-xs text-slate-400">
             Se usan para personalizar el análisis biomecánico.
           </p>
         </div>

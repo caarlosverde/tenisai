@@ -77,7 +77,7 @@ export default function TarjetaConvocatoria({ convocatoria: c }: { convocatoria:
           <span className="inline-flex items-center gap-1.5">
             <Avatar nombre={c.creador.nombre} semilla={c.creador.username ?? "?"} tamano="sm" />
             {c.esMia ? "Tú" : c.creador.nombre}
-            <span className="font-mono text-slate-500">· {c.creador.puntos} pts</span>
+            <span className="font-mono text-slate-400">· {c.creador.puntos} pts</span>
           </span>
           {!cancelada ? (
             <span

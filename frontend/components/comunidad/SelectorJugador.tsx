@@ -153,7 +153,7 @@ export default function SelectorJugador({
             </li>
           ) : null}
           {!consulta && opciones.length > 0 ? (
-            <li className="px-3 pb-1 pt-2 text-[11px] uppercase tracking-wider text-slate-500">
+            <li className="px-3 pb-1 pt-2 text-[11px] uppercase tracking-wider text-slate-400">
               {convocatoriaId ? "Jugadores del partido y amigos" : "Tus amigos"}
             </li>
           ) : null}
