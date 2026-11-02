@@ -580,6 +580,21 @@ def test_sin_orientacion_decide_por_las_manos_en_el_armado(distancia_manos, espe
     assert tipo == esperado
 
 
+@pytest.mark.parametrize(("de_frente", "esperado"), [(True, bio.TIPO_VOLEA), (False, bio.TIPO_DERECHA)])
+def test_la_volea_automatica_solo_se_decide_de_frente(de_frente, esperado):
+    # Codo pegado al cuerpo en el armado (apertura casi nula) e impacto entre hombro y
+    # cadera. De espaldas eso también lo da una derecha con el brazo hacia la cámara
+    lado = -1 if de_frente else 1
+    prep = []
+    for i in range(5):
+        frame = _frame(0.1 * i, de_frente=de_frente, muneca_der_x=0.5 + 0.2 * lado, muneca_izq_x=0.5 - 0.15 * lado, fase="preparacion")
+        frame["landmarks"]["codo_der"] = [0.5 + 0.055 * lado, 0.5, 0.99]
+        prep.append(frame)
+    impacto = _frame(0.6, de_frente=de_frente, muneca_der_x=0.5 + 0.1 * lado, muneca_izq_x=0.5 - 0.15 * lado)
+    orientacion = -1 if de_frente else 1
+    assert bio.clasificar_tipo_golpe(impacto, prep, [], orientacion=orientacion) == esperado
+
+
 def test_un_descenso_pequeno_no_es_cortado():
     # Jugador lejano (escala pequeña): 0,03 de la imagen es menos de medio tronco
     prep = [_frame(0.1 * i, de_frente=False, muneca_der_x=0.7, muneca_izq_x=0.3, fase="preparacion") for i in range(5)]

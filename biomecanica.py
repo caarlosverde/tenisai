@@ -733,9 +733,11 @@ def clasificar_tipo_golpe(
             and y_cadera is not None
             and y_hombro - 0.02 <= muneca_dom[1] <= y_cadera - 0.01
         )
-        # De perfil o con el jugador lejos el armado se ve casi nulo en 2D aunque
-        # sea un golpe de fondo: solo se llama volea si la orientación es clara
-        if apertura_max < VOLEA_APERTURA_MAX and impacto_alto and orientacion != 0:
+        # La apertura del hombro solo se ve bien de frente. De espaldas el brazo va
+        # hacia la cámara y en 2D sale casi nula en muchos golpes de fondo (14-36° en
+        # los vídeos de prueba: 6 de 18 golpes acababan como volea); de perfil tampoco
+        # se ve. Con esas vistas la volea solo se analiza si el jugador la elige.
+        if apertura_max < VOLEA_APERTURA_MAX and impacto_alto and orientacion == -1:
             tipo_base = TIPO_VOLEA
 
     if tipo_base in (TIPO_VOLEA, TIPO_SAQUE, TIPO_REMATE):
