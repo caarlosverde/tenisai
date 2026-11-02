@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      # Los tests no cargan el motor de visión (MediaPipe/YOLO/torch): basta con la API.
+      - run: pip install fastapi==0.141.1 "uvicorn[standard]==0.52.4" python-multipart==0.0.32 PyJWT==2.10.1 scipy==1.17.1 pytest==8.4.2 httpx
+      - run: pytest
+
+  frontend:
+    name: Frontend (lint, tipos y tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx next typegen
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit

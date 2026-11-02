@@ -1,5 +1,19 @@
 # TenisAI — Análisis biomecánico del tenis con visión artificial
 
+[![CI](https://github.com/caarlosverde/tenisai/actions/workflows/ci.yml/badge.svg)](https://github.com/caarlosverde/tenisai/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![MediaPipe](https://img.shields.io/badge/MediaPipe-0097A7?logo=google&logoColor=white)
+![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-111F68)
+![Next.js](https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white)
+
+> **🇬🇧 In English:** TenisAI is my Bachelor's thesis (Computer Engineering, Universidad de Alcalá).
+> It analyses a video of a tennis stroke with computer vision: pose estimation per frame
+> (MediaPipe), ball detection (YOLOv8), 3D joint angles for each phase of the stroke,
+> automatic stroke classification, a score, coaching tips and a PDF report. Python/FastAPI
+> vision backend + Next.js/Prisma web app, Dockerised, with 160+ automated tests
+> (pytest, Node test runner and Playwright end-to-end).
+
 Trabajo Fin de Grado. TenisAI analiza un vídeo de un golpe de tenis: detecta la
 postura del jugador fotograma a fotograma, mide los ángulos de brazos y piernas en
 cada fase del golpe (preparación, carga, impacto y terminación), reconoce el tipo de
