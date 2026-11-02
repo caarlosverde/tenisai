@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import PaginaLegal from "@/components/PaginaLegal";
-import { RESPONSABLE } from "@/lib/legal";
+import { ALOJAMIENTO, RESPONSABLE } from "@/lib/legal";
 import { EDAD_MINIMA } from "@/lib/validacionPerfil";
 
 export const metadata: Metadata = {
@@ -93,9 +93,14 @@ export default function PrivacidadPage() {
 
       <h2>6. Con quién se comparten</h2>
       <p>
-        Con nadie fuera de TenisAI. Los vídeos se procesan en el propio servidor de TenisAI con
+        No se ceden a terceros. Los vídeos se procesan en el propio servidor de TenisAI con
         modelos que se ejecutan en local (MediaPipe y YOLOv8): no se envían a servicios externos
-        de inteligencia artificial ni se ceden a terceros.
+        de inteligencia artificial.
+      </p>
+      <p>
+        El servidor está alojado en {ALOJAMIENTO.proveedor}, en {ALOJAMIENTO.region}, que actúa
+        como encargado del tratamiento: guarda los datos por cuenta de TenisAI y no los usa
+        para nada más. Los datos no salen del Espacio Económico Europeo.
       </p>
       <p>Dentro de TenisAI, en la comunidad, decides tú qué ven los demás usuarios registrados:</p>
       <ul>
@@ -162,7 +167,8 @@ export default function PrivacidadPage() {
 
       <h2>9. Seguridad</h2>
       <p>
-        Las contraseñas se guardan cifradas, las sesiones van firmadas, el acceso a cada análisis
+        Las comunicaciones van cifradas (HTTPS), las contraseñas se guardan cifradas, las
+        sesiones van firmadas, el acceso a cada análisis
         está restringido a su dueño y se limitan los intentos de inicio de sesión. En la
         comunidad puedes bloquear a cualquier jugador (dejáis de veros y no puede apuntarte en
         partidos) o denunciarlo; las denuncias las revisa el responsable del tratamiento.
